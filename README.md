@@ -1,0 +1,2 @@
+# konfiguracja
+Różne pliki konfiguracyjne
