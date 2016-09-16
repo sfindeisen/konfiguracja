@@ -30,3 +30,8 @@
 ;; tab width
 (setq tab-width 4)
 
+;; scroll one line at a time
+;; (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+;; don't accelerate scrolling
+(setq mouse-wheel-progressive-speed nil)
+
