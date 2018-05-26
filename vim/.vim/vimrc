@@ -16,3 +16,8 @@ colorscheme solarized
 set shiftwidth=4
 set softtabstop=4
 set expandtab
+
+" Tab display
+highlight SpecialKey ctermfg=1
+set list
+set listchars=tab:T>
