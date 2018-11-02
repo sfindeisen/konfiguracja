@@ -12,6 +12,8 @@ colorscheme solarized
 " Enable line numbering (left margin)
 " set number
 
+set ruler
+
 " Indentation settings
 set shiftwidth=4
 set softtabstop=4
