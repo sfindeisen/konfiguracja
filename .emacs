@@ -1,3 +1,8 @@
+;; make frame title contain the file path
+(setq frame-title-format
+    (list (format "%s %%S: %%j " (system-name))
+        '(buffer-file-name "%f" (dired-directory dired-directory "%b"))))
+
 ;; make buffer names unique using path suffixes
 (require 'uniquify)
 (setq uniquify-buffer-name-style 'forward)
