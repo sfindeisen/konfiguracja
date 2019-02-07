@@ -7,6 +7,9 @@
 (require 'uniquify)
 (setq uniquify-buffer-name-style 'forward)
 
+;; session save and restore
+(desktop-save-mode 1)
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
