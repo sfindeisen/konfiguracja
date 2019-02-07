@@ -40,5 +40,5 @@
 (setq mouse-wheel-progressive-speed nil)
 
 ;; delete trailing whitespace at the end of each line on save (all modes)
-(add-hook 'before-save-hook 'delete-trailing-whitespace
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
 
