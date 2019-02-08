@@ -68,5 +68,8 @@
 (define-key global-map [menu-bar tools simple-calculator] nil)
 (define-key global-map [menu-bar tools spell] nil)
 
-(define-key-after file [show-file-name]
-    '("Show path" . show-file-name) 'insert-file)
+(define-key-after
+    (lookup-key global-map [menu-bar file])
+    [show-file-name]
+    '("Show path" . show-file-name)
+    'insert-file)
