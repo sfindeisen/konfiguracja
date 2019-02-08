@@ -73,3 +73,9 @@
     [show-file-name]
     '("Show path" . show-file-name)
     'insert-file)
+
+(define-key-after
+    (lookup-key global-map [menu-bar edit])
+    [highlight-symbol-at-point]
+    '("Highlight occurences" . highlight-symbol-at-point)
+    'mark-whole-buffer)
