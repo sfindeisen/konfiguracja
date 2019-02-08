@@ -68,12 +68,14 @@
 (define-key global-map [menu-bar tools simple-calculator] nil)
 (define-key global-map [menu-bar tools spell] nil)
 
+;; add menu item: show file path
 (define-key-after
     (lookup-key global-map [menu-bar file])
     [show-file-name]
     '("Show path" . show-file-name)
     'insert-file)
 
+;; add menu item: highlight occurences of the symbol at point
 (define-key-after
     (lookup-key global-map [menu-bar edit])
     [highlight-symbol-at-point]
