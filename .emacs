@@ -54,6 +54,7 @@
 (define-key global-map [menu-bar tools browse-web] nil)
 (define-key global-map [menu-bar tools calc] nil)
 (define-key global-map [menu-bar tools calendar] nil)
+(define-key global-map [menu-bar tools compose-mail] nil)
 (define-key global-map [menu-bar tools directory-search] nil)
 (define-key global-map [menu-bar tools games] nil)
 (define-key global-map [menu-bar tools gnus] nil)
