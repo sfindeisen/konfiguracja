@@ -1,3 +1,9 @@
+;; show the full file path in the minibuffer
+(defun show-file-name ()
+  "Show the full file path in the minibuffer."
+  (interactive)
+  (message (buffer-file-name)))
+
 ;; make frame title contain the file path
 (setq frame-title-format
     (list (format "%s %%S: %%j " (system-name))
