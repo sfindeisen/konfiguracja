@@ -50,3 +50,6 @@
 ;; delete trailing whitespace at the end of each line on save (all modes)
 (add-hook 'before-save-hook 'delete-trailing-whitespace)
 
+;; disable unused menu items
+(define-key global-map [menu-bar tools simple-calculator] nil)
+
