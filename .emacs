@@ -56,8 +56,12 @@
 ;; don't accelerate scrolling
 (setq mouse-wheel-progressive-speed nil)
 
-;; delete trailing whitespace at the end of each line on save (all modes)
-(add-hook 'before-save-hook 'delete-trailing-whitespace)
+;; ;; delete trailing whitespace at the end of each line on save (all modes)
+;; (add-hook 'before-save-hook 'delete-trailing-whitespace)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Menu
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; disable unused menu items
 (define-key global-map [menu-bar tools browse-web] nil)
@@ -84,3 +88,23 @@
     [highlight-symbol-at-point]
     '("Highlight occurences" . highlight-symbol-at-point)
     'mark-whole-buffer)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LaTeX (AUCTeX)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; disable custom font for math in LaTeX mode
+(setq font-latex-fontify-script nil)
+
+;; Only change sectioning colour
+(setq font-latex-fontify-sectioning 'color)
+;; super-/sub-script on baseline
+(setq font-latex-script-display (quote (nil)))
+;; Do not change super-/sub-script font
+(custom-set-faces
+  '(font-latex-subscript-face ((t nil)))
+  '(font-latex-superscript-face ((t nil)))
+)
+;; Exclude bold/italic from keywords
+(setq font-latex-deactivated-keyword-classes
+    '("italic-command" "bold-command" "italic-declaration" "bold-declaration"))
