@@ -23,3 +23,6 @@ set expandtab
 highlight SpecialKey ctermfg=1
 set list
 set listchars=tab:T>
+
+" treat all the *.rc files as NeoMutt configuration files
+autocmd BufNewFile,BufRead *.rc set syntax=neomuttrc
