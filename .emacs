@@ -29,6 +29,7 @@
  '(current-language-environment "UTF-8")
  '(save-place t nil (saveplace))
  '(show-paren-mode t))
+
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -37,8 +38,7 @@
  )
 
 ;; Tell emacs where is your personal elisp lib dir
-(add-to-list 'load-path "~/.emacs.d/lisp/")
-
+;; (add-to-list 'load-path "~/.emacs.d/lisp/")
 ;; load the packaged named xyz.
 ;; (load "php-mode")
 
