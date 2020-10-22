@@ -37,6 +37,14 @@
  ;; If there is more than one, they won't work right.
  )
 
+;; (add-to-list 'load-path "~/github/emacs-hcl-mode/")
+;; (require 'hcl-mode)
+;; (add-to-list 'load-path "~/github/terraform-mode/")
+;; (require 'terraform-mode)
+;; (add-to-list 'load-path "~/github/yaml-mode/")
+;; (require 'yaml-mode)
+;; (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
+
 ;; Tell emacs where is your personal elisp lib dir
 ;; (add-to-list 'load-path "~/.emacs.d/lisp/")
 ;; load the packaged named xyz.
