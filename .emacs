@@ -90,6 +90,13 @@
     '("Show path" . show-file-name)
     'insert-file)
 
+;; add menu item: delete window
+(define-key-after
+    (lookup-key global-map [menu-bar file])
+    [delete-window]
+    '("Delete window" . delete-window)
+    'new-window-on-right)
+
 ;; add menu item: highlight occurences of the symbol at point
 (define-key-after
     (lookup-key global-map [menu-bar edit])
