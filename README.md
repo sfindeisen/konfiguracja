@@ -1,10 +1,8 @@
-# My Unix-like system configuration
+# My personal Unix-like system configuration
 
-**NOTE: this is my personal configuration. If you want to reuse it, you will have to edit the files and remove my personal data including my name and e-mail address.**
+I hope you will find it useful. Just remember to replace my personal data (name, e-mail address) with yours.
 
 ## Local installation (unprivileged account) (automatic)
-
-Just run:
 
 ```
 install.sh
