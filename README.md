@@ -21,12 +21,6 @@ Run `apt-get install libpam-modules` to install `pam_xauth.so`. It is likely to 
 session    optional   pam_xauth.so
 ```
 
-## Cheatsheet
-
-```
-git config --list
-```
-
 ## Credits
 
 ### vim
