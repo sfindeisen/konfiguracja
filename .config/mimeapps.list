@@ -1,0 +1,5 @@
+[Default Applications]
+application/pdf=xpdf.desktop
+application/vnd.oasis.opendocument.text=libreoffice-writer.desktop
+image/jpeg=org.gnome.gThumb.desktop
+image/png=org.gnome.gThumb.desktop

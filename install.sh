@@ -2,6 +2,7 @@
 
 SCRIPT_DIR=`dirname "$(readlink -f "$0")"`
 
+cp -vr "${SCRIPT_DIR}/.config"     "$HOME"
 cp -v  "${SCRIPT_DIR}/.emacs"      "$HOME"
 cp -v  "${SCRIPT_DIR}/.gitconfig"  "$HOME"
 cp -vr "${SCRIPT_DIR}/.stack"      "$HOME"
