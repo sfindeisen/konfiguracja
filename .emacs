@@ -37,13 +37,28 @@
  ;; If there is more than one, they won't work right.
  )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Modes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; hcl mode
 ;; (add-to-list 'load-path "~/github/emacs-hcl-mode/")
 ;; (require 'hcl-mode)
+
+;; terraform mode
 ;; (add-to-list 'load-path "~/github/terraform-mode/")
 ;; (require 'terraform-mode)
+
+;; yaml mode
 ;; (add-to-list 'load-path "~/github/yaml-mode/")
 ;; (require 'yaml-mode)
 ;; (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
+
+;; Typescript mode
+;; https://github.com/emacs-typescript/typescript.el
+;; (add-to-list 'load-path "~/r/typescript.el/")
+;; (require 'typescript-mode)
+;; (add-to-list 'auto-mode-alist '("\\.tsx\\'" . typescript-mode))
 
 ;; Tell emacs where is your personal elisp lib dir
 ;; (add-to-list 'load-path "~/.emacs.d/lisp/")
