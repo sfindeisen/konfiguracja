@@ -1,8 +1,9 @@
 # path
 export PATH=$HOME/bin/:$PATH
 
+# TODO fix colors
 # prompt
-export PS1='$(whoami)@$(hostname):$(pwd)$ '
+# export PS1='$(whoami)@$(hostname):$(pwd)$ '
 
 # colors (FreeBSD, Mac OS)
 export CLICOLOR=1
