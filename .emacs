@@ -1,4 +1,11 @@
 ;; show the full file path in the minibuffer
+
+;; Added by Package.el.  This must come before configurations of
+;; installed packages.  Don't delete this line.  If you don't want it,
+;; just comment it out by adding a semicolon to the start of the line.
+;; You may delete these explanatory comments.
+(package-initialize)
+
 (defun show-file-name ()
   "Show the full file path in the minibuffer."
   (interactive)
@@ -27,6 +34,7 @@
  '(column-number-mode t)
  '(cua-mode t nil (cua-base))
  '(current-language-environment "UTF-8")
+ '(package-selected-packages (quote (##)))
  '(save-place t nil (saveplace))
  '(show-paren-mode t))
 
@@ -35,15 +43,31 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ '(font-latex-subscript-face ((t nil)))
+ '(font-latex-superscript-face ((t nil))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Modes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; hcl mode
 ;; (add-to-list 'load-path "~/github/emacs-hcl-mode/")
 ;; (require 'hcl-mode)
+
+;; terraform mode
 ;; (add-to-list 'load-path "~/github/terraform-mode/")
 ;; (require 'terraform-mode)
+
+;; yaml mode
 ;; (add-to-list 'load-path "~/github/yaml-mode/")
 ;; (require 'yaml-mode)
 ;; (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
+
+;; Typescript mode
+;; https://github.com/emacs-typescript/typescript.el
+;; (add-to-list 'load-path "~/r/typescript.el/")
+;; (require 'typescript-mode)
+;; (add-to-list 'auto-mode-alist '("\\.tsx\\'" . typescript-mode))
 
 ;; Tell emacs where is your personal elisp lib dir
 ;; (add-to-list 'load-path "~/.emacs.d/lisp/")
@@ -116,10 +140,7 @@
 ;; super-/sub-script on baseline
 (setq font-latex-script-display (quote (nil)))
 ;; Do not change super-/sub-script font
-(custom-set-faces
-  '(font-latex-subscript-face ((t nil)))
-  '(font-latex-superscript-face ((t nil)))
-)
+
 ;; Exclude bold/italic from keywords
 (setq font-latex-deactivated-keyword-classes
     '("italic-command" "bold-command" "italic-declaration" "bold-declaration"))

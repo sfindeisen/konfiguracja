@@ -1,6 +1,4 @@
-# My personal Unix-like system configuration
-
-I hope you will find it useful. Just remember to replace my personal data (name, e-mail address) with yours.
+# Stanislaw's personal Unix-like system configuration
 
 ## Local installation (unprivileged account) (automatic)
 
@@ -8,7 +6,7 @@ I hope you will find it useful. Just remember to replace my personal data (name,
 install.sh
 ```
 
-This will configure the environment for the current user.
+This will modify your `$HOME`.
 
 ## Global system tweaks (root) (manual)
 
