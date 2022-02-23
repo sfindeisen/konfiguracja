@@ -33,5 +33,5 @@ fi
 
 TMPFILE=`mktemp`
 echo "using tempfile: $TMPFILE"
-cat "$FILE" | gpg -d | gpg -a -s > "$TMPFILE"
+cat "$FILE" | gpg -d | gpg -a -s -e > "$TMPFILE"
 mv "$TMPFILE" "$FILE"
