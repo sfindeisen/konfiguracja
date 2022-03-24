@@ -31,6 +31,7 @@ if [ 1 -ne $NOVER ] ; then
   gpg --verify "$FILE"
 fi
 
+umask 0077
 TMPFILE=`mktemp`
 echo "using tempfile: $TMPFILE"
 cat "$FILE" | gpg -d | gpg -a -s -e > "$TMPFILE"

@@ -21,4 +21,5 @@ if [ ! -f "$FILE" ] ; then
   exit 2;
 fi
 
+umask 0077
 gpg -a -s -e "$FILE"
