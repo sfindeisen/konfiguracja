@@ -1,5 +1,7 @@
 #!/bin/bash
 
+umask 0077
+
 SCRIPT_DIR=`dirname "$(readlink -f "$0")"`
 
 function dircopy() {
