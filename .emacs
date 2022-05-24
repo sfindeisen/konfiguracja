@@ -31,6 +31,13 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(haskell-font-lock-haddock t)
+ '(haskell-indentation-where-post-offset 1)
+ '(haskell-interactive-mode-hide-multi-line-errors t)
+ '(haskell-process-prompt-restart-on-cabal-change nil)
+ '(haskell-process-suggest-remove-import-lines nil)
+ '(haskell-stylish-on-save t)
+ '(haskell-tags-on-save t)
  '(column-number-mode t)
  '(cua-mode t nil (cua-base))
  '(current-language-environment "UTF-8")
@@ -49,6 +56,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Modes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Haskell mode
+;; (add-to-list 'load-path "~/github/haskell-mode/")
+;; (require 'haskell-mode-autoloads)
+;; (add-hook 'haskell-mode-hook 'turn-on-haskell-doc-mode)
+;; (add-hook 'haskell-mode-hook 'turn-on-haskell-indentation)
 
 ;; hcl mode
 ;; (add-to-list 'load-path "~/github/emacs-hcl-mode/")
