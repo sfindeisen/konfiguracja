@@ -9,7 +9,7 @@
 templates:
   params:
     author-name: Stanislaw Findeisen
-    author-email: fixpoint.combinator@gmail.com
+    author-email: stanislaw@ik.me
     github-username: sfindeisen
 
 # The following parameter specifies stack's output styles; STYLES is a
