@@ -67,6 +67,14 @@
 ;; (add-to-list 'load-path "~/github/emacs-hcl-mode/")
 ;; (require 'hcl-mode)
 
+;; rust mode
+;; (add-to-list 'load-path "~/github/rust-mode/")
+;; (autoload 'rust-mode "rust-mode" nil t)
+;; (add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-mode))
+;; (add-hook 'rust-mode-hook
+;;           (lambda () (setq indent-tabs-mode nil)))
+;; (setq rust-format-on-save n)
+
 ;; terraform mode
 ;; (add-to-list 'load-path "~/github/terraform-mode/")
 ;; (require 'terraform-mode)
