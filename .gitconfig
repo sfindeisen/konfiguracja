@@ -1,6 +1,8 @@
 [user]
 	name = Stanislaw Findeisen
 	email = stanislaw@ik.me
+[pull]
+	rebase = true
 [push]
 	default = simple
 	followTags = true
