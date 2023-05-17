@@ -1,5 +1,5 @@
 # path
-export PATH=$HOME/bin/:$HOME/.ghcup/bin/:$HOME/.cabal/bin/:$HOME/.cargo/bin/:$HOME/jdk/bin/:$PATH
+export PATH=$HOME/bin/:$HOME/.ghcup/bin/:$HOME/.cabal/bin/:$HOME/.cargo/bin/:$HOME/jdk/bin/:$HOME/apache-maven/bin/:$PATH
 
 # TODO fix colors
 # prompt
