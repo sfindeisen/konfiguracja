@@ -28,6 +28,15 @@ user_pref("browser.tabs.loadInBackground", false);
 // Don't load all tabs at startup; load them on-demand when clicked
 user_pref("browser.sessionstore.restore_on_demand", true);
 
+// Also apply to all new background tabs
+user_pref("browser.sessionstore.restore_tabs_lazily", true);
+
+// Also delay loading of pinned tabs until clicked
+user_pref("browser.sessionstore.restore_pinned_tabs_on_demand", true);
+
+// Don’t restore hidden tabs at all (saves RAM if you use hidden tabs)
+user_pref("browser.sessionstore.restore_hidden_tabs", false);
+
 // Maximum number of closed tabs stored for "Undo Close Tab" (0 disables this feature)
 user_pref("browser.sessionstore.max_tabs_undo", 0);
 
