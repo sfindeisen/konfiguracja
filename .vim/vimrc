@@ -1,3 +1,6 @@
+" Set the <Leader> key
+let mapleader="\\"
+
 " Enable syntax highlighting
 syntax on
 
@@ -23,6 +26,28 @@ set expandtab
 highlight SpecialKey ctermfg=1
 set list
 set listchars=tab:T>
+
+" Toggle paste mode with F2
+set pastetoggle=<F2>
+
+" Remove non-printable characters (except newline) from the current buffer
+function! SanitizeBuffer()
+  " Detect if Vim supports Unicode property \p{C}
+  if exists(':syntax') && matchstr(execute('echo has("unicode")'), '1')
+    " Unicode-aware: remove all control characters except newline
+    silent! %s/\v[\p{C}&&[^\n]]//g
+    echo "Buffer sanitized (Unicode mode)"
+  else
+    " ASCII-only fallback: remove control characters except newline/tab
+    silent! %s/[\x00-\x08\x0B-\x1F\x7F]//g
+    echo "Buffer sanitized (ASCII mode)"
+  endif
+
+  " Remove ANSI/VT100 escape sequences
+  silent! %s/\v\x1b\[[0-9;]*[A-Za-z]//g
+endfunction
+
+nnoremap <Leader>s :call SanitizeBuffer()<CR>
 
 " treat all the *.rc files as NeoMutt configuration files
 autocmd BufNewFile,BufRead *.rc set syntax=neomuttrc
