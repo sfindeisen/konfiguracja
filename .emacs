@@ -165,3 +165,10 @@
 ;; Exclude bold/italic from keywords
 (setq font-latex-deactivated-keyword-classes
     '("italic-command" "bold-command" "italic-declaration" "bold-declaration"))
+
+;; Dark (Solarized) theme
+;; Make sure solarized-theme is installed via M-x package-install RET solarized-theme RET
+;; or apt-get install elpa-solarized-theme
+(add-hook 'after-init-hook
+          (lambda ()
+            (load-theme 'solarized-dark t)))
