@@ -27,12 +27,30 @@ if [ ! -f "$FILE" ] ; then
   exit 2;
 fi
 
+# verify PGP signature
 if [ 1 -ne $NOVER ] ; then
-  gpg --verify "$FILE"
+  FIRST_LINE=$(head -n1 "$FILE")
+  case "$FIRST_LINE" in
+    "-----BEGIN PGP SIGNED MESSAGE-----")
+    gpg --verify "$FILE"
+    ;;
+    "-----BEGIN PGP SIGNATURE-----")
+    echo "Detached signature - you need the original file too. Exiting"
+    exit 3;
+    ;;
+    "-----BEGIN PGP MESSAGE-----")
+    gpg --decrypt --output /dev/null "$FILE"
+    ;;
+    *)
+    echo "Unknown PGP format."
+    exit 4;
+    ;;
+  esac
 fi
 
+# re-encrypt
 umask 0077
 TMPFILE=`mktemp`
 echo "using tempfile: $TMPFILE"
-cat "$FILE" | gpg -d | gpg -a -s -e > "$TMPFILE"
+cat "$FILE" | gpg --decrypt | gpg --armor --sign --encrypt > "$TMPFILE"
 mv "$TMPFILE" "$FILE"
