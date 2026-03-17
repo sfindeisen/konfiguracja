@@ -33,6 +33,7 @@ install_dir .vim
 
 install_file .emacs
 install_file .gitconfig
+install_file .gitignore
 
 cat "$SCRIPT_DIR/.profile" >> "${HOME}/.profile"
 cat "$SCRIPT_DIR/.bash_aliases" >> "${HOME}/.bash_aliases"

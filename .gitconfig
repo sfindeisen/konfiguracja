@@ -8,3 +8,4 @@
 	followTags = true
 [core]
 	editor = vim
+	excludesFile = ~/.gitignore
