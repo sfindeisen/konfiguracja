@@ -19,8 +19,8 @@ You value correctness, minimal changes, and clean git history.
 
 ## Git rules
 - Show diffs before committing
-- Suggest commit messages, but do not commit unless asked
 - Respect existing commit history and structure
+- Never push
 
 ## Communication
 - Be concise
