@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+# Combined install and upgrade script
 
 umask 0077
 
@@ -35,5 +37,39 @@ install_file .emacs
 install_file .gitconfig
 install_file .gitignore
 
-cat "$SCRIPT_DIR/.profile" >> "${HOME}/.profile"
-cat "$SCRIPT_DIR/.bash_aliases" >> "${HOME}/.bash_aliases"
+################################################################
+# custom .bashrc
+################################################################
+
+if [ -f ~/.bashrc_sf ]; then
+echo "File ~/.bashrc_sf already exists, refuse to modify ~/.bashrc"
+else
+echo "modify ~/.bashrc"
+cat <<'EOF' >> $HOME/.bashrc
+
+if [ -f ~/.bashrc_sf ]; then
+    . ~/.bashrc_sf
+fi
+EOF
+fi
+
+install_file .bash_aliases_sf
+install_file .bashrc_sf
+
+################################################################
+# custom .profile
+################################################################
+
+if [ -f ~/.profile_sf ]; then
+echo "File ~/.profile_sf already exists, refuse to modify ~/.profile"
+else
+echo "modify ~/.profile"
+cat <<'EOF' >> $HOME/.profile
+
+if [ -f "$HOME/.profile_sf" ]; then
+    . "$HOME/.profile_sf"
+fi
+EOF
+fi
+
+install_file .profile_sf
