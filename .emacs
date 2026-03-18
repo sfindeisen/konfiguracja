@@ -1,5 +1,3 @@
-;; show the full file path in the minibuffer
-
 ;; Added by Package.el.  This must come before configurations of
 ;; installed packages.  Don't delete this line.  If you don't want it,
 ;; just comment it out by adding a semicolon to the start of the line.
@@ -52,6 +50,15 @@
  ;; If there is more than one, they won't work right.
  '(font-latex-subscript-face ((t nil)))
  '(font-latex-superscript-face ((t nil))))
+
+;; Dark (Solarized) theme
+;; Make sure solarized-theme is installed via M-x package-install RET solarized-theme RET
+;; or apt-get install elpa-solarized-theme
+(load-theme 'solarized-dark t)
+(add-hook 'after-make-frame-functions
+    (lambda (frame)
+        (with-selected-frame frame
+            (load-theme 'solarized-dark t))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Modes
@@ -165,10 +172,3 @@
 ;; Exclude bold/italic from keywords
 (setq font-latex-deactivated-keyword-classes
     '("italic-command" "bold-command" "italic-declaration" "bold-declaration"))
-
-;; Dark (Solarized) theme
-;; Make sure solarized-theme is installed via M-x package-install RET solarized-theme RET
-;; or apt-get install elpa-solarized-theme
-(add-hook 'after-init-hook
-          (lambda ()
-            (load-theme 'solarized-dark t)))
