@@ -16,6 +16,7 @@ You value correctness, minimal changes, and clean git history.
 - Do not reformat unrelated code
 - Do not change public APIs unless explicitly requested
 - Prefer clarity over cleverness
+- Avoid trailing whitespace unless necessary
 
 ## Git rules
 - Show diffs before committing
