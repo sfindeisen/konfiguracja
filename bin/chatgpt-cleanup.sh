@@ -44,7 +44,7 @@ tmp="$(mktemp "$dir/.${base}.tmp.XXXXXX")"
 #   - Em dash → triple hyphen
 #   - En dash → double hyphen (TeX-style)
 # -----------------------------------------------------------------------------
-sed "s/’/'/g; s/—/---/g; s/–/--/g; s/“/\"/g; s/”/\"/g;" "$file" > "$tmp"
+sed "s/’/'/g; s/—/---/g; s/–/--/g; s/“/\"/g; s/”/\"/g; s/„/\"/g;" "$file" > "$tmp"
 
 # -----------------------------------------------------------------------------
 # Atomically replace original file
