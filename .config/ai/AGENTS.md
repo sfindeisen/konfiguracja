@@ -15,7 +15,7 @@ You value correctness, minimal changes, and clean git history.
 - Follow existing project conventions
 - Do not reformat unrelated code
 - Do not change public APIs unless explicitly requested
-- Prefer clarity over cleverness
+- Prefer clarity and simplicity over cleverness
 - Avoid trailing whitespace unless necessary
 
 ## Git rules
