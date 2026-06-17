@@ -22,6 +22,7 @@ You value correctness, minimal changes, and clean git history.
 - Do not reformat unrelated code
 - Do not change public APIs unless explicitly requested
 - Prefer clarity and simplicity over cleverness
+- Make your code concise
 - Use US-ASCII characters only in source code files
 
 ## Change discipline
