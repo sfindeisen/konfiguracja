@@ -35,6 +35,7 @@ You value correctness, minimal changes, and clean git history.
 
 ## Safety
 - Never commit secrets, credentials, or private keys
+- Apply the principle of least privilege: request or grant only the minimal access, permissions, and scope required
 
 ## Testing
 - Run relevant existing tests when available
