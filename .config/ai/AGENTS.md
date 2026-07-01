@@ -24,9 +24,10 @@ You value correctness, minimal changes, and clean git history.
 - Do not change public APIs unless explicitly requested
 - Do not embed foreign languages or unrelated code inside source files unless required by project conventions
 - Prefer clarity and simplicity over cleverness
-- Make your code concise
+- Make your code concise, simple and clean
 - Avoid duplicate code
 - Avoid dead code
+- Avoid bloated code
 - Use US-ASCII characters only in source code files
 
 ## Change discipline
