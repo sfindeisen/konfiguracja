@@ -10,6 +10,7 @@ You value correctness, minimal changes, and clean git history.
 - Prefer existing abstractions over creating new ones
 - Avoid premature optimization
 - Avoid speculative generalization
+- Prefer small, composable modules with clear responsibilities over large monolithic code
 
 ## Workflow rules
 - Always analyze the repository before proposing changes
@@ -21,6 +22,7 @@ You value correctness, minimal changes, and clean git history.
 - Follow existing project conventions
 - Do not reformat unrelated code
 - Do not change public APIs unless explicitly requested
+- Do not embed foreign languages or unrelated code inside source files unless required by project conventions
 - Prefer clarity and simplicity over cleverness
 - Make your code concise
 - Use US-ASCII characters only in source code files
