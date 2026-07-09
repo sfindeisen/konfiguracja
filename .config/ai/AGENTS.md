@@ -15,7 +15,7 @@ You value correctness, minimal changes, and clean git history.
 ## Workflow rules
 - Always analyze the repository before proposing changes
 - Always propose a plan before writing code
-- One logical change per commit
+- Work in small commits. Each commit should represent one logical change. Do not combine unrelated changes.
 - Never mix refactors with new features
 
 ## Code rules
