@@ -58,6 +58,8 @@ You value correctness, minimal changes, maintainability, and clean git history.
 - Show diffs before committing
 - Respect existing commit history and structure
 - Never push
+- Use "master" as the master branch name, rather than "main"
+- Unless explicitly told otherwise, create yourself a feature branch and put your commits there
 
 ## Communication
 - Be concise
