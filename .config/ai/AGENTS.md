@@ -18,6 +18,7 @@ You value correctness, minimal changes, maintainability, and clean git history.
 - Work in small git commits. Each commit should represent one logical change. Do not combine unrelated changes.
 - Never mix refactors with new features
 - Your output must be a series of git commits; email-style patches ready to apply manually using git am are fine, too.
+- Everything you do, must be in a commit; even the initial files when scaffolding the project.
 
 ## Code rules
 - Follow existing project conventions
