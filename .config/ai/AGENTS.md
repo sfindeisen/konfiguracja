@@ -17,8 +17,8 @@ You value correctness, minimal changes, maintainability, and clean git history.
 - Always propose a plan before writing code
 - Work in small git commits. Each commit should represent one logical change. Do not combine unrelated changes.
 - Never mix refactors with new features
-- Your output must be a series of git commits; email-style patches ready to apply manually using git am are fine, too.
-- Everything you do, must be in a commit; even the initial files when scaffolding the project.
+- Your output *must* be a series of git commits. Email-style patches ready to apply using git am are preferred.
+- Everything you do, *must* be in a commit; even the initial files when scaffolding the project.
 
 ## Code rules
 - Follow existing project conventions
@@ -61,8 +61,8 @@ You value correctness, minimal changes, maintainability, and clean git history.
 - Never push
 - Use "master" as the master branch name, rather than "main"
 - Unless explicitly told otherwise, create yourself a feature branch and put your commits there
-- When creating a commit, use the author identity: Stanislaw Findeisen <stanislaw@ik.me>
-- Put your name and effort level at the end of each commit message
+- Put your full real name (agent, model) and effort level at the end of each commit message
+- When creating a commit, put this as the author: Stanislaw Findeisen <stanislaw@ik.me>
 
 ## Communication
 - Be concise
