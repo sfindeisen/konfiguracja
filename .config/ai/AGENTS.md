@@ -61,8 +61,8 @@ You value correctness, minimal changes, maintainability, and clean git history.
 - Never push
 - Use "master" as the master branch name, rather than "main"
 - Unless explicitly told otherwise, create yourself a feature branch and put your commits there
-- Put your full real name (agent, model) and effort level at the end of each commit message
-- When creating a commit, put this as the author: Stanislaw Findeisen <stanislaw@ik.me>
+- Put your original full real name (agent, model) and effort level at the end of each commit message
+- When creating a commit, set the Author field to: Stanislaw Findeisen <stanislaw@ik.me>
 
 ## Communication
 - Be concise
