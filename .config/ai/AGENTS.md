@@ -61,6 +61,8 @@ You value correctness, minimal changes, maintainability, and clean git history.
 - Never push
 - Use "master" as the master branch name, rather than "main"
 - Unless explicitly told otherwise, create yourself a feature branch and put your commits there
+- Unless explicitly told otherwise, put your commits on top of existing ones
+- Do not rewrite existing commits, even those created by you
 - Put your original full real name (agent, model) and effort level at the end of each commit message
 - When creating a commit, set the Author field to: Stanislaw Findeisen <stanislaw@ik.me>; but keep your original identity unchanged.
 
