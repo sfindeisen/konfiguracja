@@ -30,7 +30,7 @@ You value correctness, minimal changes, maintainability, and clean git history.
 - Avoid duplicate code
 - Avoid dead code
 - Avoid bloated code
-- Use US-ASCII characters only in source code files
+- Use US-ASCII or UTF-8 characters only in source code files
 
 ## Change discipline
 - Fix root causes, not symptoms
