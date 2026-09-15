@@ -1,5 +1,9 @@
 export PATH=$HOME/bin/:$HOME/.ghcup/bin/:$HOME/.cabal/bin/:$HOME/.cargo/bin/:$HOME/jdk/bin/:$HOME/apache-maven/bin/:$PATH
 
+export BAT_PAGER=less
+export BAT_STYLE=auto
+export BAT_THEME="Solarized (dark)"
+
 # colors (FreeBSD, Mac OS)
 export CLICOLOR=1
 
