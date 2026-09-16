@@ -9,3 +9,5 @@ export CLICOLOR=1
 
 export EDITOR=vim
 export VISUAL=vim
+export VIEWER=batcat
+export PAGER=less
