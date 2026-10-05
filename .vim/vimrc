@@ -32,10 +32,10 @@ set pastetoggle=<F2>
 
 " Remove control characters (except newline and tab) from the current buffer
 function! SanitizeBuffer()
-  silent! %s/[\x00-\x08\x0B-\x1F\x7F]//g
+  " Remove ANSI/VT100 escape sequences first: the next step deletes their ESC
+  silent! %s/\v\e\[[0-9;]*[A-Za-z]//g
 
-  " Remove ANSI/VT100 escape sequences
-  silent! %s/\v\x1b\[[0-9;]*[A-Za-z]//g
+  silent! %s/[\x00-\x08\x0B-\x1F\x7F]//g
 
   echo "Buffer sanitized"
 endfunction
