@@ -7,6 +7,7 @@
 #   ’  -> '
 #   —  -> ---
 #   –  -> --
+#   “ ” „  -> "
 #
 # Approach:
 #   - Writes transformed content to a temp file in same directory
@@ -43,6 +44,7 @@ tmp="$(mktemp "$dir/.${base}.tmp.XXXXXX")"
 #   - Curly apostrophe → straight apostrophe
 #   - Em dash → triple hyphen
 #   - En dash → double hyphen (TeX-style)
+#   - Curly and low double quotes → straight double quote
 # -----------------------------------------------------------------------------
 sed "s/’/'/g; s/—/---/g; s/–/--/g; s/“/\"/g; s/”/\"/g; s/„/\"/g;" "$file" > "$tmp"
 
