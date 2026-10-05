@@ -4,7 +4,7 @@
 # Atomic in-place text normalization for a file.
 #
 # Replacements:
-#   ’  -> '
+#   ‘ ’  -> '
 #   —  -> ---
 #   –  -> --
 #   “ ” „  -> "
@@ -41,12 +41,12 @@ tmp="$(mktemp "$dir/.${base}.tmp.XXXXXX")"
 
 # -----------------------------------------------------------------------------
 # Apply text transformations
-#   - Curly apostrophe → straight apostrophe
+#   - Curly single quote/apostrophe → straight apostrophe
 #   - Em dash → triple hyphen
 #   - En dash → double hyphen (TeX-style)
 #   - Curly and low double quotes → straight double quote
 # -----------------------------------------------------------------------------
-sed "s/’/'/g; s/—/---/g; s/–/--/g; s/“/\"/g; s/”/\"/g; s/„/\"/g;" "$file" > "$tmp"
+sed "s/‘/'/g; s/’/'/g; s/—/---/g; s/–/--/g; s/“/\"/g; s/”/\"/g; s/„/\"/g;" "$file" > "$tmp"
 
 # -----------------------------------------------------------------------------
 # Atomically replace original file
