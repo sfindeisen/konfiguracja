@@ -49,5 +49,7 @@ sed "s/’/'/g; s/—/---/g; s/–/--/g; s/“/\"/g; s/”/\"/g; s/„/\"/g;" "$
 # -----------------------------------------------------------------------------
 # Atomically replace original file
 # -----------------------------------------------------------------------------
+# mktemp creates the file with mode 0600; keep the original's mode instead
+chmod --reference="$file" "$tmp"
 mv "$tmp" "$file"
 
