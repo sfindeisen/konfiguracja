@@ -1,2 +1,5 @@
 [Midnight-Commander]
 use_internal_view=false
+confirm_execute=true
+confirm_directory_hotlist_delete=true
+show_all_if_ambiguous=true
