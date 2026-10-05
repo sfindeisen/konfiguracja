@@ -109,7 +109,7 @@
 (setq-default indent-tabs-mode nil)
 
 ;; tab width
-(setq tab-width 4)
+(setq-default tab-width 4)
 
 ;; scroll one line at a time
 ;; (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
