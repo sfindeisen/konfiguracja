@@ -11,9 +11,9 @@ function dircopy() {
   TO_DIR=$2
 
   if [ -d "${TO_DIR}" ] ; then
-    cp -vr ${FROM_DIR}/* "${TO_DIR}/"
+    cp -vr "${FROM_DIR}"/* "${TO_DIR}/"
   else
-    cp -vr ${FROM_DIR}   "${TO_DIR}"
+    cp -vr "${FROM_DIR}"   "${TO_DIR}"
   fi
 }
 
@@ -45,7 +45,7 @@ if [ -f ~/.bashrc_sf ]; then
 echo "File ~/.bashrc_sf already exists, refuse to modify ~/.bashrc"
 else
 echo "modify ~/.bashrc"
-cat <<'EOF' >> $HOME/.bashrc
+cat <<'EOF' >> "$HOME/.bashrc"
 
 if [ -f ~/.bashrc_sf ]; then
     . ~/.bashrc_sf
@@ -64,7 +64,7 @@ if [ -f ~/.profile_sf ]; then
 echo "File ~/.profile_sf already exists, refuse to modify ~/.profile"
 else
 echo "modify ~/.profile"
-cat <<'EOF' >> $HOME/.profile
+cat <<'EOF' >> "$HOME/.profile"
 
 if [ -f "$HOME/.profile_sf" ]; then
     . "$HOME/.profile_sf"
