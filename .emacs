@@ -166,3 +166,21 @@
 ;; Exclude bold/italic from keywords
 (setq font-latex-deactivated-keyword-classes
     '("italic-command" "bold-command" "italic-declaration" "bold-declaration"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Git blame (Magit)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Show author date and name in the left margin, IntelliJ-style.
+;; Needs magit: apt-get install elpa-magit
+;; C-c M-g b starts it, c toggles compact/wide, RET shows the commit, q quits
+(setq magit-blame-time-format "%F")
+(setq magit-blame-styles
+      '((margin
+         (margin-format    . " %A %-20.20a")
+         (margin-width     . 33)
+         (margin-body-face . (magit-blame-dimmed)))
+        (margin-wide
+         (margin-format    . " %.10H %A %-20.20a %s")
+         (margin-width     . 72)
+         (margin-body-face . (magit-blame-dimmed)))))
