@@ -174,13 +174,13 @@
 ;; Show author date and name in the left margin, IntelliJ-style.
 ;; Needs magit: apt-get install elpa-magit
 ;; C-c M-g b starts it, c toggles compact/wide, RET shows the commit, q quits
+;; Each format list is applied per line of a commit's chunk, the last one
+;; repeating, so the trailing "" leaves all but the chunk's first line blank.
 (setq magit-blame-time-format "%F")
 (setq magit-blame-styles
       '((margin
-         (margin-format    . " %A %-20.20a")
-         (margin-width     . 33)
-         (margin-body-face . (magit-blame-dimmed)))
+         (margin-format . (" %A %-20.20a" ""))
+         (margin-width  . 33))
         (margin-wide
-         (margin-format    . " %.10H %A %-20.20a %s")
-         (margin-width     . 72)
-         (margin-body-face . (magit-blame-dimmed)))))
+         (margin-format . (" %.10H %A %-20.20a %s" ""))
+         (margin-width  . 72))))
