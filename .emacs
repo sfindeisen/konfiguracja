@@ -173,7 +173,8 @@
 
 ;; Show author date and name in the left margin, IntelliJ-style.
 ;; Needs magit: apt-get install elpa-magit
-;; C-c M-g b starts it, c toggles compact/wide, RET shows the commit, q quits
+;; Tools > Git Blame or C-c M-g b starts it, c toggles compact/wide,
+;; RET shows the commit, q quits
 ;; Each format list is applied per line of a commit's chunk, the last one
 ;; repeating, so the trailing "" leaves all but the chunk's first line blank.
 (setq magit-blame-time-format "%F")
@@ -184,3 +185,19 @@
         (margin-wide
          (margin-format . (" %.10H %A %-20.20a %s" ""))
          (margin-width  . 72))))
+
+(defun toggle-git-blame ()
+  "Toggle git blame annotations in the left margin."
+  (interactive)
+  (if (bound-and-true-p magit-blame-mode)
+      (magit-blame-quit)
+    (call-interactively #'magit-blame-addition)))
+
+;; add menu item: toggle git blame, checked while it is on
+(define-key-after
+    (lookup-key global-map [menu-bar tools])
+    [toggle-git-blame]
+    '(menu-item "Git Blame" toggle-git-blame
+                :button (:toggle . (bound-and-true-p magit-blame-mode))
+                :enable (fboundp 'magit-blame-addition))
+    'vc)
