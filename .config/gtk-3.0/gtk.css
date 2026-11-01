@@ -1,0 +1,30 @@
+/*
+ * XFCE Workspace Switcher (button mode): highlight the current workspace.
+ * No plugin ID needed: in xfce4-panel 4.18/4.20 the switcher's buttons are
+ * the only panel toggle buttons placed directly in a grid.
+ */
+
+/* Other workspaces */
+.xfce4-panel grid > #xfce-panel-toggle-button {
+    background: #3a3a3a;
+    border: 1px solid #2a2a2a;
+    box-shadow: none;
+}
+.xfce4-panel grid > #xfce-panel-toggle-button label {
+    color: #b0b0b0;
+    text-shadow: none;
+}
+
+/* Mouse-over (before :checked so the current workspace keeps its color) */
+.xfce4-panel grid > #xfce-panel-toggle-button:hover {
+    background: #555555;
+}
+
+/* Current workspace */
+.xfce4-panel grid > #xfce-panel-toggle-button:checked {
+    background: #e8a33d;
+    border-color: #ffffff;
+}
+.xfce4-panel grid > #xfce-panel-toggle-button:checked label {
+    color: #000000;
+}
