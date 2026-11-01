@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=wslock
+Comment=Keep me off one workspace during set time windows
+Exec=sh -c "exec ~/bin/wslock.py"
