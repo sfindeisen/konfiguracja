@@ -19,6 +19,10 @@ Run `apt-get install libpam-modules` to install `pam_xauth.so`. It is likely to 
 session    optional   pam_xauth.so
 ```
 
+### Workspace lock (wslock.py)
+
+Run `apt-get install python3-gi gir1.2-wnck-3.0`.
+
 ## Credits
 
 ### vim
