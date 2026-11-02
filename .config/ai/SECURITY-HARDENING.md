@@ -58,21 +58,6 @@ propose adding it as its own change before relying on it.
 | `Config` | Typed configuration loader with startup validation |
 | `Clock` | Injectable time source |
 
-### 0.5 Definitions
-
-- Actor: the authenticated principal (user, API key or service) making a
-  request.
-- Platform staff: people operating the platform. Never a regular user
-  role.
-- Untrusted input: anything not produced by this service's own code during
-  this request. That includes request data, headers, cookies, files, vendor
-  responses, webhooks, messages from other services, database content that
-  originated from users, and output of AI models.
-- Trust boundary: any point where untrusted input enters.
-- Security event: a named, machine-readable event emitted for alerting.
-- Audit record: an append-only record of who did what, when and from
-  where.
-
 
 ## 1. Agent operating rules (GEN)
 
@@ -126,6 +111,11 @@ propose adding it as its own change before relying on it.
   the target context.
 - PRIN-08 Prefer maintained, well-known libraries over custom security
   code.
+- PRIN-09 Treat as untrusted everything this code did not produce itself:
+  request data, headers, cookies, files, vendor responses, webhooks,
+  messages from other services, stored data that came from users, and AI
+  model output. Data does not become trusted by being stored in our own
+  database.
 
 Layer model:
 
