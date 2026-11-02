@@ -458,6 +458,30 @@ that decision.
   (for Redis, an ACL without `FLUSHALL`, `CONFIG`, `KEYS` or `DEBUG`, and
   `EVAL` only if needed).
 
+### 4.5 In-memory state
+
+- STATE-29 Rate limiters, attempt counters, locks, sessions and revocation
+  lists MUST live in a store shared by all instances (the database or a
+  shared cache). Per-process memory exists once per instance and resets on
+  restart, so it enforces no limit: an attacker spreads requests over
+  instances or waits for the next deploy.
+- STATE-30 Large inputs and outputs (uploads, imports, exports, query
+  results) MUST be processed as streams with bounded buffers, never loaded
+  into memory whole (DOS-01).
+- STATE-31 Anything that must not be lost (audit records, revocations,
+  outbox messages) MUST be persisted before the operation is reported as
+  done. In-memory queues and buffers lose their contents on a crash or
+  restart.
+- STATE-32 Secrets and personal data in memory: keep them only as long as
+  needed, and never put them into exception messages, debug output,
+  global registries, or objects that get logged or serialized. Where the
+  library allows it, leave keys in the KMS and send it the data, instead
+  of loading the key into the process.
+- STATE-33 Heap dumps, core dumps and profiles contain secrets and
+  personal data. Production builds MUST NOT expose heap-dump or profiling
+  endpoints without authentication (HTTP-04), and code MUST NOT write
+  dumps or profiles to shared or world-readable locations.
+
 
 ## 5. Identity and authentication (AUTHN)
 
