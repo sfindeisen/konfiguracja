@@ -151,6 +151,8 @@ own commit before the change that needs it.
   messages from other services, stored data that came from users, and AI
   model output. Data does not become trusted by being stored in our own
   database.
+- PRIN-10 Users are isolated from each other by default: one user's data
+  is invisible to another unless an explicit grant says otherwise (ISO).
 
 Layer model:
 
@@ -184,6 +186,39 @@ the database user still cannot touch other databases or change the schema.
 
 ## 2. User isolation (ISO)
 
+Users are isolated from each other the way tenants are in a multi-tenant
+system: every user's data is private to that user unless an explicit
+grant says otherwise. Isolation is enforced in every layer and in every
+store, cache, file, queue and channel, not only in request handlers. The
+AUTHZ rules decide who may do what; these rules make sure no path skips
+that decision.
+
+### 2.1 Ownership and grants
+
+- ISO-08 Every record of user data MUST have an explicit owner: a
+  `NOT NULL` owner column, or a mandatory reference to an owned parent.
+  Data without an owner is platform data, which users can at most read.
+- ISO-09 Access to another user's data MUST come from an explicit grant
+  (a share, a membership, a role over that object), checked by
+  `authorize()`. Knowing an ID, a URL or a file name is never a grant.
+- ISO-10 Write paths MUST authorize every object they reference, not only
+  the one in the URL: attaching a file to a document, adding an item to an
+  order, moving a record into a folder or setting a parent ID each need a
+  check on the referenced object.
+- ISO-11 Where data is strictly per user, foreign keys SHOULD include the
+  owner, for example
+  `FOREIGN KEY (owner_id, folder_id) REFERENCES folders (owner_id, id)`,
+  so that the database rejects links across users.
+- ISO-12 Share links are grants: at least 128 random bits, stored hashed,
+  bound to one object and one permission, expiring, revocable and logged
+  on use. A share link MUST NOT grant more than its creator holds
+  (AUTHZ-10).
+- ISO-13 Revoking a grant MUST take effect on the next request, including
+  for open WebSocket subscriptions, cached results and signed URLs (keep
+  their lifetime short).
+- ISO-14 New data and new features are private by default. Anything
+  visible to other users (public profiles, shared spaces) MUST be marked
+  as such explicitly in the data model, never inferred.
 - ISO-01 Data-access functions for restricted data MUST take the
   `RequestContext` and apply ownership or permission filters in the query
   itself (AUTHZ-06, AUTHZ-07).
@@ -191,15 +226,71 @@ the database user still cannot touch other databases or change the schema.
   their existence is not revealed.
 - ISO-03 Public identifiers SHOULD be non-sequential (UUIDv7, ULID). They
   are never an access control.
+
+### 2.2 Stores, channels, jobs and outputs
+
 - ISO-04 Derived stores MUST NOT bypass authorization. Search results,
   cached objects and reports are filtered by the same permission rules as
   the source; cache keys for permission-dependent content MUST include the
   actor or its permission scope.
 - ISO-05 Background jobs MUST carry the actor in the payload, re-create
   the `RequestContext` and re-check authorization when they run.
+- ISO-15 Every key derived from user data MUST be namespaced by its owner:
+  cache keys, object-storage paths, search documents, queue messages,
+  pub/sub channel names, rate-limit buckets, lock names, temporary file
+  names and idempotency keys. A namespace prevents mix-ups; it is not a
+  permission, and the code reading the data still checks access.
+- ISO-16 Search engines MUST apply the actor's access filter inside the
+  query (security trimming), so that hits, counts, facets, highlights and
+  suggestions never come from data the actor may not see.
+- ISO-17 Aggregates shown to users (counts, sums, rankings, "people who
+  viewed this") MUST be computed only over data the actor may see;
+  otherwise they reveal the existence and the values of other users'
+  data.
+- ISO-18 Real-time channels (WebSocket, server-sent events, pub/sub) MUST
+  authorize every subscription on the server and filter every message per
+  recipient. An unguessable channel name is not access control.
+- ISO-19 User files MUST be stored privately (no public buckets or
+  directories) and served only through short-lived signed URLs bound to
+  one object (FILE-10). Temporary files MUST get random names in a private
+  directory, be readable only by the process, and be deleted after use.
+- ISO-20 Exports, reports and generated documents MUST be produced with
+  the requesting user's permissions at generation time, and MUST be
+  downloadable only by that user.
+- ISO-21 Batch jobs that process many users MUST handle each user's data
+  in that user's context (or in a declared system context), and MUST NOT
+  mix several users' data into one output, message or file unless the
+  feature is explicitly about that.
+- ISO-22 Error messages, validation messages and notifications MUST NOT
+  disclose another user's data: names, emails, the value behind a
+  unique-constraint violation, other rows in a stack trace.
+
+### 2.3 Requests and processes
+
 - ISO-06 MUST NOT leak per-request state through pooled connections: no
   session-level settings or temporary tables that outlive the transaction;
   reset connection state on checkout.
+- ISO-23 Request state (actor, roles, request data) MUST live in the
+  request context. It MUST NOT be kept in module-level or global
+  variables, class or static fields, singletons, or thread-locals that
+  outlive the request: worker threads and event loops serve many users.
+- ISO-24 In asynchronous code, the request context MUST travel through the
+  runtime's context mechanism (for example Python `contextvars`, Node.js
+  `AsyncLocalStorage`) into every task and callback the request starts,
+  and MUST be cleared when the request ends. Code running outside a
+  request (timers, pool callbacks) MUST NOT see a previous request's
+  context.
+- ISO-25 Memoization and per-process caches whose result depends on the
+  actor (`lru_cache`, memoize decorators, ORM identity maps and sessions,
+  GraphQL DataLoaders) MUST be created per request, or keyed by actor
+  (ISO-04).
+- ISO-26 Buffers and objects reused across requests (object pools,
+  `sync.Pool`, reused byte arrays) MUST be cleared before reuse.
+  Uninitialized allocations (for example Node.js `Buffer.allocUnsafe`)
+  MUST NOT be returned to users or written to storage.
+
+### 2.4 Platform staff
+
 - ISO-07 Platform-staff access to user data MUST go through a separate,
   audited code path with explicit break-glass approval.
 
@@ -1181,8 +1272,10 @@ code decides whether one cheap request can trigger expensive work.
 - TEST-02 Every bug fix MUST start with a failing test that reproduces the
   bug.
 - TEST-03 Write these tests together with the code they cover:
-  - IDOR: user A's credentials against user B's object IDs return 404 on
-    every endpoint, export, search and job;
+  - user isolation: for every endpoint, export, search, job and channel,
+    user A gets their own object, a 404 for user B's object, only the
+    granted permission on an object B shared, and a 404 again once the
+    share is revoked;
   - authorization matrix: each role x action x ownership cell allows or
     denies as specified (AUTHZ-16);
   - domain rules: invariants, state transitions, money and time
@@ -1209,7 +1302,7 @@ code decides whether one cheap request can trigger expensive work.
 
 | Category | Covered by |
 | --- | --- |
-| A01 Broken Access Control (includes SSRF and CSRF) | AUTHZ, DATA, WEB-05..12, EXT-17..23 |
+| A01 Broken Access Control (includes SSRF and CSRF) | ISO, AUTHZ, DATA, WEB-05..12, EXT-17..23 |
 | A02 Security Misconfiguration (includes XXE) | CFG, WEB-01..06, HTTP-04, PARSE-01 |
 | A03 Software Supply Chain Failures | AI-01, CI |
 | A04 Cryptographic Failures | CRY, SEC, AUTHN-03 |
@@ -1228,6 +1321,8 @@ code decides whether one cheap request can trigger expensive work.
       policy and authorization-matrix rows (AUTHZ-05, AUTHZ-16)
 - [ ] Data access only through `DataAccess`; IDOR test added (DATA-01,
       TEST-03)
+- [ ] New stores, keys, channels and files are namespaced by owner, and
+      every referenced object is authorized (ISO-10, ISO-15)
 - [ ] Requests schema-validated; writable fields allow-listed; response
       DTOs used (API-01, AUTHZ-08, AUTHZ-09)
 - [ ] New state-changing endpoints CSRF-protected; no GET side effects
