@@ -824,9 +824,23 @@ UPDATE invoices
   implementation. Core domain logic SHOULD also have property-based tests.
 - AI-06 If the product calls an LLM at runtime, the OWASP Top 10 for LLM
   Applications applies as well. Model output is untrusted input: validate
-  and encode it, never execute it.
+  and encode it, never execute it. Text the model reads (user input,
+  documents, web pages, emails) can carry instructions (prompt
+  injection), so tools and data given to the model MUST be limited to
+  what the requesting user may do, and actions with side effects SHOULD
+  need the user's confirmation.
 
 ## 10. Injection and output encoding (INJ)
+
+Injection happens wherever untrusted data reaches an interpreter as code
+instead of data: a database, a shell, a template engine, a browser, a
+logger, a document generator. The defense is always the same: send data
+through the interpreter's own data channel (bind parameters, argument
+arrays, context-aware encoders, structured fields), never by building
+code as a string. This holds for data read back from our own stores as
+much as for request input.
+
+### 10.1 Queries and data stores
 
 - INJ-01 MUST use parameterized queries or safe ORM APIs for every query.
   MUST NOT concatenate or interpolate untrusted data into SQL, HQL/JPQL,
@@ -838,12 +852,66 @@ UPDATE invoices
   similar) MUST NOT contain untrusted data.
 - INJ-04 MUST type-check inputs before NoSQL queries, so objects cannot
   inject operators (for example `{"$ne": null}` or `$where`).
+- INJ-13 Each datastore has its own parameter API, and code MUST use it:
+  - SQL: bind parameters, also inside stored procedures, functions and
+    migrations (in PL/pgSQL, `EXECUTE ... USING` for values and
+    `format('%I', ...)` for identifiers);
+  - MongoDB: query documents built from typed values; never `$where`,
+    `$function`, `$accumulator` or `mapReduce` with user input;
+  - Redis: arguments passed separately from the command; Lua scripts get
+    user data only through `KEYS` and `ARGV`;
+  - Elasticsearch and OpenSearch: structured queries (`term`, `match`);
+    never `query_string` syntax or scripts built from user input;
+  - graph databases (Cypher, Gremlin): query parameters;
+  - LDAP: the library's filter and DN escaping.
+- INJ-14 Second-order injection: values read from our own database,
+  cache, queue, files or logs are still untrusted when they reach an
+  interpreter (PRIN-09), and get the same parameters and encoding as
+  request input.
+- INJ-15 `LIKE` and full-text patterns MUST escape `%`, `_` and the escape
+  character in user input; otherwise the user controls the pattern (data
+  probing, slow queries).
+- INJ-16 Structured formats (JSON, XML, YAML, CSV, URLs, query strings,
+  email headers) MUST be produced with a serializer or builder, never by
+  concatenating strings that contain user data.
+
+### 10.2 Commands and code
+
 - INJ-05 MUST NOT invoke a shell with untrusted input. Use argument arrays
   without a shell, put `--` before user-supplied arguments, and allow-list
   values where possible.
 - INJ-06 MUST NOT evaluate untrusted input as code, template or expression
   (`eval`, `exec`, `Function`, template compilation, EL/OGNL/SpEL,
   server-side template engines).
+- INJ-17 Argument injection: a user value passed to a program MUST NOT be
+  able to become an option. Put it after `--` and reject values that start
+  with `-`. Tools that also follow URLs or protocols (git, curl, ssh,
+  rsync, tar, ImageMagick, ffmpeg) MUST be restricted explicitly, for
+  example git `protocol.allow`, ffmpeg `-protocol_whitelist`, an
+  ImageMagick security policy.
+- INJ-18 MUST NOT select code by user input: no dynamic `import`,
+  `require` or `include`, no class or function lookup by name
+  (`getattr`, reflection, `Class.forName`), no template or file inclusion
+  by a user-supplied name. Map allowed values to code through a fixed
+  table.
+- INJ-19 User input MUST NOT be used as a format string or template:
+  `printf`-style formats, Python `str.format` (a user-controlled format
+  string can read object attributes), `String.format`, logger message
+  templates. Pass it as an argument.
+- INJ-20 Document generators are interpreters. LaTeX MUST run with shell
+  escape disabled (`-no-shell-escape`) and restricted file access
+  (`openin_any = p`, `openout_any = p`), with user text escaped for LaTeX
+  special characters. HTML-to-PDF converters receive escaped HTML and
+  follow EXT-22.
+- INJ-21 User-supplied code (formulas, scripts, rules, plugins) MUST NOT
+  run in the application process. Use a purpose-built evaluator with a
+  fixed grammar (for example a formula parser), or a separate sandboxed
+  process with no network, no filesystem access and CPU, memory and time
+  limits. Language-level sandboxes (Node.js `vm`, restricted `eval`) are
+  not security boundaries.
+
+### 10.3 Output to browsers
+
 - INJ-07 MUST rely on the framework's context-aware auto-escaping for
   HTML. Every bypass (`dangerouslySetInnerHTML`, `v-html`, `|safe`,
   `raw()`) MUST carry a review comment and use sanitized input (INJ-08).
@@ -852,12 +920,49 @@ UPDATE invoices
   then sanitized.
 - INJ-09 Values placed into HTML attributes, URLs, JavaScript, CSS or
   JSON embedded in HTML MUST use the encoder for that context.
+- INJ-22 JSON embedded in HTML (`<script>` blocks, data attributes) MUST
+  be serialized with `<`, `>`, `&`, U+2028 and U+2029 escaped, so that
+  `</script>` cannot break out. No JSONP.
+- INJ-23 Untrusted values MUST NOT go into inline scripts, event-handler
+  attributes (`onclick`), `style` attributes or style sheets.
+  URL-bearing attributes (`href`, `src`, `action`, `formaction`) take only
+  encoded, scheme-checked URLs (WEB-14).
+- INJ-24 Client-side template injection: user text MUST NOT reach a
+  front-end framework's template compiler (for example `{{ }}` in
+  server-rendered HTML that the framework then compiles); render it as
+  text.
+- INJ-25 Sanitize last: HTML sanitization MUST run after every other
+  transformation (Markdown rendering, truncation, link rewriting, mention
+  expansion). Changing sanitized HTML afterwards reopens injection
+  (mutation XSS).
+
+### 10.4 Headers, logs, exports and outbound requests
+
 - INJ-10 Headers, cookies and redirect locations MUST be set through
   framework APIs; raw CR and LF MUST be rejected (response splitting).
 - INJ-11 Logs MUST be structured, with untrusted values encoded (log
   injection).
 - INJ-12 CSV and spreadsheet exports MUST neutralize cells that begin with
   `=`, `+`, `-`, `@`, tab or carriage return (formula injection).
+- INJ-26 Logging MUST NOT evaluate lookups or expressions inside messages
+  (Log4Shell-style `${...}`). User values go in as structured fields,
+  never as the message template (INJ-19).
+- INJ-27 User values in the URL path, query or headers of an outbound
+  request MUST be encoded by the URL and header builders (path segments
+  escaped, CR and LF rejected), so that they cannot change the target
+  path (`../admin`), the query or the headers of a vendor call.
+
+### 10.5 Canonicalization
+
+- INJ-28 Validate after canonicalization: decode input exactly once
+  (percent-decoding, Unicode normalization to NFC or NFKC), then validate
+  the result. Reject double-encoded input, NUL bytes and invalid UTF-8.
+- INJ-29 Any file path built from data (archive entries, stored names,
+  configuration) MUST be resolved (`realpath`) and checked to stay inside
+  its base directory before use (AUTHZ-15, FILE-09).
+- INJ-30 Source files MUST NOT contain Unicode bidirectional control
+  characters or invisible characters (Trojan Source). Check generated code
+  for them before committing.
 
 
 ## 11. Browser security, CSRF and front-end code (WEB)
@@ -1331,6 +1436,9 @@ code decides whether one cheap request can trigger expensive work.
       work async with per-user quotas (DOS-01..08)
 - [ ] User-controlled URLs go through `EgressClient`; egress list updated
       (EXT-17, EXT-25)
+- [ ] Every interpreter (database, shell, template engine, document
+      generator, logger) gets untrusted data only as parameters,
+      arguments or encoded values (INJ)
 - [ ] Output encoded for its context; no unsafe DOM sinks (INJ-07..09,
       WEB-13)
 - [ ] New invariants backed by constraints; state changes through
