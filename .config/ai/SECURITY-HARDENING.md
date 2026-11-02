@@ -406,6 +406,57 @@ that decision.
 - STATE-04 Security decisions (session validity and revocation, roles and
   permissions, one-time-code use, balances) MUST read the source of truth,
   never a lagging replica or a long-lived cache.
+- STATE-17 Writes MUST go to the primary only. Replica connections MUST use
+  read-only database users, so that a bug cannot write to a replica or
+  make it diverge.
+- STATE-18 Read your own writes in security flows: after a password or MFA
+  change, a role or grant change, a logout, a session revocation or a
+  token consumption, every following check MUST see the change. Read from
+  the primary, or wait until the replica has replayed the change.
+- STATE-19 Security-critical writes (revocations, password and MFA
+  changes, role removals, token consumption) SHOULD be committed with
+  synchronous replication where the database offers it (for example
+  PostgreSQL `SET LOCAL synchronous_commit = remote_apply` with a
+  synchronous standby), so that a failover cannot lose them and silently
+  restore revoked access.
+- STATE-20 After a failover the application MUST write only to the new
+  primary: connect with a read-write target (for example libpq
+  `target_session_attrs=read-write`), and do not cache the primary's
+  address beyond the driver's own reconnect logic.
+- STATE-21 Replicas and reporting copies hold the same personal data and
+  secrets as the primary. Code that reads them gets the same access
+  control, and no broader credentials, than code that reads the primary.
+
+### 4.4 Caches
+
+- STATE-22 A cache key MUST include every input that changes the cached
+  value: the actor or its permission scope (ISO-04), locale, format, API
+  version, feature flags. Build keys from a structured, escaped encoding
+  or a hash of a canonical serialization, never by joining user strings
+  with a separator (key collisions).
+- STATE-23 Values read from a cache are untrusted. Store them as data
+  (JSON or another plain format), never as native serialized objects
+  (`pickle`, Java serialization): whoever can write to the cache could
+  otherwise run code (PARSE-03).
+- STATE-24 MUST NOT cache secrets, tokens, one-time codes or password
+  hashes. Personal data MAY be cached with a short TTL, in a cache that
+  requires authentication and TLS.
+- STATE-25 Security changes MUST invalidate what they affect: logout,
+  password change, role or grant change, account deletion and data
+  deletion remove the related entries, or the TTL is short enough to be
+  the accepted delay (AUTHZ-14). Cached authorization decisions and other
+  cached "allowed" results are the critical case.
+- STATE-26 With several application instances, each has its own
+  in-process cache. A revocation MUST reach all of them (broadcast
+  invalidation or a short TTL); whatever must take effect immediately
+  (sessions, permissions, kill switches) MUST NOT rely on an in-process
+  cache alone.
+- STATE-27 ORM second-level caches, query caches and HTTP response caches
+  MUST be keyed by actor, or used only for data that every user may see.
+- STATE-28 Each service uses its own cache namespace and credentials. The
+  application's cache user MUST NOT be able to run administrative commands
+  (for Redis, an ACL without `FLUSHALL`, `CONFIG`, `KEYS` or `DEBUG`, and
+  `EVAL` only if needed).
 
 
 ## 5. Identity and authentication (AUTHN)
@@ -1516,6 +1567,8 @@ code decides whether one cheap request can trigger expensive work.
   - concurrency: parallel requests against every security limit,
     single-use token and idempotent operation produce exactly one effect
     or stay within the limit (STATE-05, STATE-06);
+  - caches and replicas: a revoked session, role or grant is rejected
+    immediately, on every instance and on every read path;
   - webhooks and vendors: bad signature, stale timestamp, replayed event,
     vendor timeout, malformed response;
   - sign-up abuse: repeated sign-ups for one address, after the pending
@@ -1541,7 +1594,7 @@ code decides whether one cheap request can trigger expensive work.
 | A05 Injection (includes XSS) | INJ, WEB-13..16, PARSE |
 | A06 Insecure Design | PRIN, BIZ, STATE, TEST-01, DOS |
 | A07 Authentication Failures | AUTHN |
-| A08 Software or Data Integrity Failures | CI-02, CI-03, PARSE-03, EXT-12..16 |
+| A08 Software or Data Integrity Failures | CI-02, CI-03, PARSE-03, EXT-12..16, STATE-23 |
 | A09 Security Logging and Alerting Failures | LOG |
 | A10 Mishandling of Exceptional Conditions | BIZ-13..17, DOS-10..14 |
 
@@ -1576,6 +1629,8 @@ code decides whether one cheap request can trigger expensive work.
       the actor (STATE-02, STATE-11)
 - [ ] Security limits and single-use tokens are enforced atomically
       (STATE-05, STATE-06)
+- [ ] Cache keys include the actor where the value depends on it, and
+      security changes invalidate them (STATE-22, STATE-25)
 - [ ] External calls have timeouts and bounded retries, and run outside
       database transactions (EXT-02, EXT-03, EXT-05)
 - [ ] Errors fail closed; nothing swallowed; resources released on error
