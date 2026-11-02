@@ -40,23 +40,103 @@ monitoring and alert rules, on-call, backups, incident response). Section
   "Retired".
 - `DATA-02..10` means DATA-02 to DATA-10 inclusive.
 
-### 0.4 Placeholder names
+### 0.4 Security building blocks
 
-This file names security building blocks generically. Map each one to the
-project's real component. If a block does not exist yet, report it and
-propose adding it as its own change before relying on it.
+Each risky operation goes through one module, so that it is implemented
+and reviewed once. These modules are ordinary code in this repository,
+written by us; each runs inside the application or worker process that
+uses it, and none of them is a separate service. If the project already
+has one under another name, use that. If one is missing, add it in its
+own commit before the change that needs it.
 
-| Placeholder | Meaning |
-| --- | --- |
-| `RequestContext` | Immutable per-request object holding the authenticated actor and its roles |
-| `DataAccess` | The only data-access path per database; requires a `RequestContext` for restricted data |
-| `authorize(actor, permission, resource)` | The single policy decision function |
-| `EgressClient` | The only HTTP client allowed to call user-controlled or vendor URLs |
-| `MessageSender` | The only path for sending email and SMS (through the outbox) |
-| `AuditLog` | Append-only, tamper-evident audit trail writer |
-| `SecurityEvent` | Emitter of named security events and metrics for alerting |
-| `Config` | Typed configuration loader with startup validation |
-| `Clock` | Injectable time source |
+#### Request context: `RequestContext`
+
+- What: an immutable object that the authentication middleware creates
+  once per request. A background job rebuilds it from the actor ID in its
+  payload (DATA-17).
+- Holds: the authenticated actor (user, API key or service), its roles,
+  the session ID, the client IP (HTTP-02) and the request ID.
+- Used by: handlers, services and data-access functions, passed
+  explicitly or through the framework's request-scoped storage.
+- Never: built from request parameters, or changed after creation.
+
+#### Data-access layer: `DataAccess`
+
+- What: the repository or DAO modules, one set per database. They are the
+  only code that imports the database driver or ORM session, opens
+  connections and runs queries.
+- Does: parameterized queries (INJ-01); ownership and permission filters
+  taken from the request context (DATA-02); statement timeouts (DOS-02);
+  maximum page sizes (DOS-03).
+- Used by: service and domain code. Request handlers do not query
+  databases directly.
+- Enforced by: an architecture or import-lint test that fails when any
+  other module imports the driver or ORM (DATA-01).
+
+#### Policy module: `authorize(actor, action, resource)`
+
+- What: one module holding all permission logic. `authorize()` returns
+  allow or deny (or raises on deny); a companion function returns the
+  query filter that list endpoints apply (AUTHZ-07).
+- Used by: every handler, job and service method, before it reads or
+  changes a resource.
+- Reads: roles and ownership from the source of truth (DATA-11).
+- Never: duplicated as inline role checks elsewhere (AUTHZ-02).
+
+#### Outbound HTTP client: `EgressClient`
+
+- What: a thin wrapper around the HTTP library the project already uses,
+  running in the process that makes the call. It is not a proxy or a
+  separate service. Operations MAY add an egress proxy on top; the code
+  does not rely on one.
+- Used for: every outbound HTTP request, whether to a vendor API, to a
+  webhook endpoint we call, or to a URL that came from a user. Feature
+  code never calls the HTTP library directly.
+- Does, on every call: TLS verification (CRY-01), connect and read
+  timeouts (EXT-02), a response-size limit, the retry policy (EXT-03),
+  logging without secrets.
+- Does, for user-supplied URLs: scheme allow-list, DNS resolution and IP
+  block list, connecting to the validated IP, re-validation of every
+  redirect (EXT-18..21).
+
+#### Message sender: `MessageSender`
+
+- What: functions such as `send_email(template, to, data)` and
+  `send_sms(template, to, data)` that write a message request to an outbox
+  table inside the current database transaction, plus a background worker
+  that reads the outbox and calls the email or SMS provider through its
+  vendor adapter (EXT-01).
+- Does: renders templates with auto-escaping (MSG-05); applies rate
+  limits and budgets (MSG-09, MSG-11, MSG-12); sends with an idempotency
+  key and retries (MSG-15).
+- Used by: domain code. Nothing else calls a provider SDK.
+
+#### Audit log writer: `AuditLog`
+
+- What: a function such as `audit(context, action, target, before, after)`
+  that inserts into an audit table which the application's database user
+  may insert into but not update or delete, or writes to an append-only
+  log stream.
+- Used for: the actions listed in LOG-07.
+
+#### Security events: `SecurityEvent`
+
+- What: a function such as `security_event(name, context, **fields)` that
+  emits a structured log line or metric with a fixed event name, through
+  the project's existing logging or metrics library. Operations build
+  alerts on these names (LOG-10).
+
+#### Configuration loader: `Config`
+
+- What: the module that reads environment variables and the secret
+  manager once at startup into a typed, read-only settings object, and
+  validates it (CFG-01, CFG-02). Code reads settings only from this
+  object, never from the environment directly.
+
+#### Clock: `Clock`
+
+- What: an injectable time source (`now()`), so that tests control time
+  (BIZ-04). Domain code never reads the system clock directly.
 
 
 ## 1. Agent operating rules (GEN)
