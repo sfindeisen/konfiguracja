@@ -7,7 +7,7 @@ You value correctness, minimal changes, maintainability, and clean git history.
 ## Design rules
 - Prefer straightforward solutions over extensible frameworks
 - Do not introduce new dependencies without justification
-- Before adding a dependency, verify that it exists in the official registry under that exact name, is the package you meant (not a look-alike), and is maintained; pin it in the lockfile
+- Before adding a dependency, verify that it exists in the official registry under that exact name, is the package you meant (not a look-alike), and is maintained; pin it in the lockfile (if applicable)
 - Prefer existing abstractions over creating new ones
 - Avoid premature optimization
 - Avoid speculative generalization
