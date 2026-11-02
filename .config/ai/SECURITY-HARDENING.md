@@ -507,8 +507,8 @@ the database user still cannot touch other databases or change the schema.
   the outbox (BIZ-14).
 - EXT-06 MUST validate vendor responses against a schema, with size
   limits. Vendor data is untrusted input.
-- EXT-07 MUST honour `429` responses and `Retry-After`.
-- EXT-08 MUST define degraded behaviour per integration: queue and retry,
+- EXT-07 MUST honor `429` responses and `Retry-After`.
+- EXT-08 MUST define degraded behavior per integration: queue and retry,
   fallback provider, or a visible "temporarily unavailable".
 - EXT-09 MUST send vendors only the fields they need, request the
   narrowest scopes, and store per-user OAuth tokens encrypted (CRY-04)
@@ -658,7 +658,7 @@ UPDATE invoices
   - resolve from the official registry (or the project's registry proxy,
     if there is one);
   - be checked for existence, publisher history, package age (flag
-    packages younger than 90 days), maintenance status and licence;
+    packages younger than 90 days), maintenance status and license;
   - be installed from a lockfile with integrity hashes.
   Never install a package only because an AI tool suggested it. AI tools
   invent plausible package names, and attackers register them
@@ -755,7 +755,7 @@ UPDATE invoices
 - WEB-11 WebSocket upgrades MUST check `Origin` against an allow-list and
   authenticate the connection (cross-site WebSocket hijacking). Each
   message type MUST be authorized (AUTHZ-05).
-- WEB-12 CORS MUST NOT be treated as a CSRF defence; it governs reading
+- WEB-12 CORS MUST NOT be treated as a CSRF defense; it governs reading
   responses, not sending requests.
 
 ### 11.3 Front-end code
