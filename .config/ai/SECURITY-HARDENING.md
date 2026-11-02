@@ -42,7 +42,7 @@ own commit before the change that needs it.
 
 - What: an immutable object that the authentication middleware creates
   once per request. A background job rebuilds it from the actor ID in its
-  payload (ISO-05).
+  payload (ISO-12).
 - Holds: the authenticated actor (user, API key or service), its roles,
   the session ID, the client IP (HTTP-02) and the request ID.
 - Used by: handlers, services and data-access functions, passed
@@ -55,7 +55,7 @@ own commit before the change that needs it.
   only code that imports the database driver or ORM session, opens
   connections and runs queries.
 - Does: parameterized queries (INJ-01); ownership and permission filters
-  taken from the request context (ISO-01); statement timeouts (DOS-02);
+  taken from the request context (ISO-08); statement timeouts (DOS-02);
   maximum page sizes (DOS-03).
 - Used by: service and domain code. Request handlers do not query
   databases directly.
@@ -69,7 +69,7 @@ own commit before the change that needs it.
   query filter that list endpoints apply (AUTHZ-07).
 - Used by: every handler, job and service method, before it reads or
   changes a resource.
-- Reads: roles and ownership from the source of truth (STATE-04).
+- Reads: roles and ownership from the source of truth (STATE-16).
 - Never: duplicated as inline role checks elsewhere (AUTHZ-02).
 
 #### Outbound HTTP client: `EgressClient`
@@ -198,103 +198,103 @@ that decision.
 
 ### 2.1 Ownership and grants
 
-- ISO-08 Every record of user data MUST have an explicit owner: a
+- ISO-01 Every record of user data MUST have an explicit owner: a
   `NOT NULL` owner column, or a mandatory reference to an owned parent.
   Data without an owner is platform data, which users can at most read.
-- ISO-09 Access to another user's data MUST come from an explicit grant
+- ISO-02 Access to another user's data MUST come from an explicit grant
   (a share, a membership, a role over that object), checked by
   `authorize()`. Knowing an ID, a URL or a file name is never a grant.
-- ISO-10 Write paths MUST authorize every object they reference, not only
+- ISO-03 Write paths MUST authorize every object they reference, not only
   the one in the URL: attaching a file to a document, adding an item to an
   order, moving a record into a folder or setting a parent ID each need a
   check on the referenced object.
-- ISO-11 Where data is strictly per user, foreign keys SHOULD include the
+- ISO-04 Where data is strictly per user, foreign keys SHOULD include the
   owner, for example
   `FOREIGN KEY (owner_id, folder_id) REFERENCES folders (owner_id, id)`,
   so that the database rejects links across users.
-- ISO-12 Share links are grants: at least 128 random bits, stored hashed,
+- ISO-05 Share links are grants: at least 128 random bits, stored hashed,
   bound to one object and one permission, expiring, revocable and logged
   on use. A share link MUST NOT grant more than its creator holds
   (AUTHZ-10).
-- ISO-13 Revoking a grant MUST take effect on the next request, including
+- ISO-06 Revoking a grant MUST take effect on the next request, including
   for open WebSocket subscriptions, cached results and signed URLs (keep
   their lifetime short).
-- ISO-14 New data and new features are private by default. Anything
+- ISO-07 New data and new features are private by default. Anything
   visible to other users (public profiles, shared spaces) MUST be marked
   as such explicitly in the data model, never inferred.
-- ISO-01 Data-access functions for restricted data MUST take the
+- ISO-08 Data-access functions for restricted data MUST take the
   `RequestContext` and apply ownership or permission filters in the query
   itself (AUTHZ-06, AUTHZ-07).
-- ISO-02 MUST return 404, not 403, for objects the actor may not see, so
+- ISO-09 MUST return 404, not 403, for objects the actor may not see, so
   their existence is not revealed.
-- ISO-03 Public identifiers SHOULD be non-sequential (UUIDv7, ULID). They
+- ISO-10 Public identifiers SHOULD be non-sequential (UUIDv7, ULID). They
   are never an access control.
 
 ### 2.2 Stores, channels, jobs and outputs
 
-- ISO-04 Derived stores MUST NOT bypass authorization. Search results,
+- ISO-11 Derived stores MUST NOT bypass authorization. Search results,
   cached objects and reports are filtered by the same permission rules as
   the source; cache keys for permission-dependent content MUST include the
   actor or its permission scope.
-- ISO-05 Background jobs MUST carry the actor in the payload, re-create
+- ISO-12 Background jobs MUST carry the actor in the payload, re-create
   the `RequestContext` and re-check authorization when they run.
-- ISO-15 Every key derived from user data MUST be namespaced by its owner:
+- ISO-13 Every key derived from user data MUST be namespaced by its owner:
   cache keys, object-storage paths, search documents, queue messages,
   pub/sub channel names, rate-limit buckets, lock names, temporary file
   names and idempotency keys. A namespace prevents mix-ups; it is not a
   permission, and the code reading the data still checks access.
-- ISO-16 Search engines MUST apply the actor's access filter inside the
+- ISO-14 Search engines MUST apply the actor's access filter inside the
   query (security trimming), so that hits, counts, facets, highlights and
   suggestions never come from data the actor may not see.
-- ISO-17 Aggregates shown to users (counts, sums, rankings, "people who
+- ISO-15 Aggregates shown to users (counts, sums, rankings, "people who
   viewed this") MUST be computed only over data the actor may see;
   otherwise they reveal the existence and the values of other users'
   data.
-- ISO-18 Real-time channels (WebSocket, server-sent events, pub/sub) MUST
+- ISO-16 Real-time channels (WebSocket, server-sent events, pub/sub) MUST
   authorize every subscription on the server and filter every message per
   recipient. An unguessable channel name is not access control.
-- ISO-19 User files MUST be stored privately (no public buckets or
+- ISO-17 User files MUST be stored privately (no public buckets or
   directories) and served only through short-lived signed URLs bound to
   one object (FILE-10). Temporary files MUST get random names in a private
   directory, be readable only by the process, and be deleted after use.
-- ISO-20 Exports, reports and generated documents MUST be produced with
+- ISO-18 Exports, reports and generated documents MUST be produced with
   the requesting user's permissions at generation time, and MUST be
   downloadable only by that user.
-- ISO-21 Batch jobs that process many users MUST handle each user's data
+- ISO-19 Batch jobs that process many users MUST handle each user's data
   in that user's context (or in a declared system context), and MUST NOT
   mix several users' data into one output, message or file unless the
   feature is explicitly about that.
-- ISO-22 Error messages, validation messages and notifications MUST NOT
+- ISO-20 Error messages, validation messages and notifications MUST NOT
   disclose another user's data: names, emails, the value behind a
   unique-constraint violation, other rows in a stack trace.
 
 ### 2.3 Requests and processes
 
-- ISO-06 MUST NOT leak per-request state through pooled connections: no
+- ISO-21 MUST NOT leak per-request state through pooled connections: no
   session-level settings or temporary tables that outlive the transaction;
   reset connection state on checkout.
-- ISO-23 Request state (actor, roles, request data) MUST live in the
+- ISO-22 Request state (actor, roles, request data) MUST live in the
   request context. It MUST NOT be kept in module-level or global
   variables, class or static fields, singletons, or thread-locals that
   outlive the request: worker threads and event loops serve many users.
-- ISO-24 In asynchronous code, the request context MUST travel through the
+- ISO-23 In asynchronous code, the request context MUST travel through the
   runtime's context mechanism (for example Python `contextvars`, Node.js
   `AsyncLocalStorage`) into every task and callback the request starts,
   and MUST be cleared when the request ends. Code running outside a
   request (timers, pool callbacks) MUST NOT see a previous request's
   context.
-- ISO-25 Memoization and per-process caches whose result depends on the
+- ISO-24 Memoization and per-process caches whose result depends on the
   actor (`lru_cache`, memoize decorators, ORM identity maps and sessions,
   GraphQL DataLoaders) MUST be created per request, or keyed by actor
-  (ISO-04).
-- ISO-26 Buffers and objects reused across requests (object pools,
+  (ISO-11).
+- ISO-25 Buffers and objects reused across requests (object pools,
   `sync.Pool`, reused byte arrays) MUST be cleared before reuse.
   Uninitialized allocations (for example Node.js `Buffer.allocUnsafe`)
   MUST NOT be returned to users or written to storage.
 
 ### 2.4 Platform staff
 
-- ISO-07 Platform-staff access to user data MUST go through a separate,
+- ISO-26 Platform-staff access to user data MUST go through a separate,
   audited code path with explicit break-glass approval.
 
 
@@ -306,35 +306,35 @@ that decision.
   (`DataAccess`). Feature code MUST NOT open connections, use the database
   driver or ORM session, or build queries outside it. An architecture test
   MUST enforce this.
-- DATA-03 Each database MUST be accessed with its own least-privilege
+- DATA-02 Each database MUST be accessed with its own least-privilege
   credentials. The application user MUST NOT run DDL; migrations MUST use
   a separate user; read-only workloads SHOULD use a read-only user. A
   service MUST NOT hold credentials for databases it does not use.
-- DATA-04 Database connections MUST use TLS with certificate verification
+- DATA-03 Database connections MUST use TLS with certificate verification
   where the database supports it, and MUST set statement timeouts
   (DOS-02).
-- DATA-06 PostgreSQL row-level security MAY add a second layer for
+- DATA-04 PostgreSQL row-level security MAY add a second layer for
   user-owned data. If used, the application role MUST NOT own the tables
   or have `BYPASSRLS`, and the actor MUST be set with `SET LOCAL` inside
   the transaction.
 
 ### 3.2 Several databases, one consistent state
 
-- DATA-09 Each kind of data MUST have exactly one source of truth. Copies
+- DATA-05 Each kind of data MUST have exactly one source of truth. Copies
   in other stores (caches, search indices, read replicas, reporting
   databases) are derived and MUST be rebuildable from it.
-- DATA-12 MUST NOT use distributed transactions across databases. Use the
-  transactional outbox and idempotent consumers (STATE-03, BIZ-14).
-- DATA-13 References between databases cannot use foreign keys. The code
+- DATA-06 MUST NOT use distributed transactions across databases. Use the
+  transactional outbox and idempotent consumers (STATE-09, BIZ-11).
+- DATA-07 References between databases cannot use foreign keys. The code
   MUST validate them on write, and reconciliation jobs MUST detect orphans
-  and drift (BIZ-12).
-- DATA-14 Migrations MUST be backward compatible (expand, migrate,
+  and drift (BIZ-09).
+- DATA-08 Migrations MUST be backward compatible (expand, migrate,
   contract), so the app runs against schema N and N-1. Each database
   tracks its own schema version; the migrator MUST be idempotent and MUST
   report drift as an error.
-- DATA-15 Identifiers that travel between databases SHOULD be globally
+- DATA-09 Identifiers that travel between databases SHOULD be globally
   unique (UUIDs), so records from different stores cannot be confused.
-- DATA-16 Deleting data MUST reach every store that holds a copy
+- DATA-10 Deleting data MUST reach every store that holds a copy
   (PRIV-03).
 
 
@@ -345,13 +345,13 @@ that decision.
 - STATE-01 Check-then-act sequences MUST be atomic: a guarded update,
   `SELECT ... FOR UPDATE`, an optimistic version column, or a unique
   constraint. Counters MUST use atomic increments.
-- STATE-05 Limits that protect security MUST be enforced atomically: OTP
+- STATE-02 Limits that protect security MUST be enforced atomically: OTP
   and login attempt counters, rate limits, quotas, coupon and voucher
   redemption, invitation use, balances. Attackers send many requests at
   once to get past a read-check-write sequence (limit overrun); use an
   atomic increment-and-compare in the database or shared store, or a
   unique constraint.
-- STATE-06 Single-use tokens (password reset, invitation, one-time code,
+- STATE-03 Single-use tokens (password reset, invitation, one-time code,
   one-time share link) MUST be consumed by one conditional update, and the
   action runs only if exactly one row changed:
 
@@ -360,50 +360,50 @@ that decision.
    WHERE token_hash = :h AND used_at IS NULL AND expires_at > now();
   ```
 
-- STATE-07 Read-modify-write of permission, balance or status fields MUST
+- STATE-04 Read-modify-write of permission, balance or status fields MUST
   use a row lock or an optimistic version check; never last-write-wins
   (lost updates).
-- STATE-08 Jobs processed by parallel workers MUST be claimed atomically
+- STATE-05 Jobs processed by parallel workers MUST be claimed atomically
   (`SELECT ... FOR UPDATE SKIP LOCKED`, or a lease with an expiry). A
   worker whose lease has expired MUST NOT commit its result; check a
   fencing token or version on commit.
-- STATE-09 Distributed locks (Redis and similar) are advisory and can
+- STATE-06 Distributed locks (Redis and similar) are advisory and can
   expire in the middle of an operation. Security-relevant correctness MUST
   NOT depend on them alone; back them with a database constraint or a
   fencing token.
-- STATE-10 Parallel work inside one request (threads, tasks, promises)
-  MUST receive the request context explicitly (ISO-24) and MUST NOT share
+- STATE-07 Parallel work inside one request (threads, tasks, promises)
+  MUST receive the request context explicitly (ISO-23) and MUST NOT share
   mutable state without synchronization.
 
 ### 4.2 Idempotency
 
-- STATE-02 Mutating endpoints that clients may retry MUST accept an
+- STATE-08 Mutating endpoints that clients may retry MUST accept an
   `Idempotency-Key`, store key, request hash and response, replay the
   stored response, and reject reuse of a key with a different request.
-- STATE-03 Queue consumers MUST be idempotent; delivery is at-least-once.
-- STATE-11 Idempotency keys MUST be scoped to the actor and the operation,
+- STATE-09 Queue consumers MUST be idempotent; delivery is at-least-once.
+- STATE-10 Idempotency keys MUST be scoped to the actor and the operation,
   looked up as `(actor, operation, key)`. A key sent by another user MUST
-  NOT return the first user's stored response (ISO-15).
-- STATE-12 Two concurrent requests with the same key MUST NOT both run:
+  NOT return the first user's stored response (ISO-13).
+- STATE-11 Two concurrent requests with the same key MUST NOT both run:
   reserve the key first under a unique constraint (status "in progress");
   the second request waits or gets `409`.
-- STATE-13 Stored responses MUST expire (for example after 24 hours) and
+- STATE-12 Stored responses MUST expire (for example after 24 hours) and
   are personal data: they get the same protection and deletion as the
   data they contain.
-- STATE-14 Effects MUST be idempotent in the data, not only in the API
+- STATE-13 Effects MUST be idempotent in the data, not only in the API
   layer: unique constraints on natural keys (external payment ID, vendor
   event ID, message ID) make it impossible for a retry to create a second
   record.
-- STATE-15 A queue consumer MUST record the message ID in the same
+- STATE-14 A queue consumer MUST record the message ID in the same
   transaction as the message's effect, so that a crash between effect and
   acknowledgment cannot apply it twice.
-- STATE-16 Operations that are not idempotent MUST NOT be retried
+- STATE-15 Operations that are not idempotent MUST NOT be retried
   automatically (by clients, proxies, job runners or SDK retry settings)
   unless they carry an idempotency key (EXT-03).
 
 ### 4.3 Primary and replicas
 
-- STATE-04 Security decisions (session validity and revocation, roles and
+- STATE-16 Security decisions (session validity and revocation, roles and
   permissions, one-time-code use, balances) MUST read the source of truth,
   never a lagging replica or a long-lived cache.
 - STATE-17 Writes MUST go to the primary only. Replica connections MUST use
@@ -430,7 +430,7 @@ that decision.
 ### 4.4 Caches
 
 - STATE-22 A cache key MUST include every input that changes the cached
-  value: the actor or its permission scope (ISO-04), locale, format, API
+  value: the actor or its permission scope (ISO-11), locale, format, API
   version, feature flags. Build keys from a structured, escaped encoding
   or a hash of a canonical serialization, never by joining user strings
   with a separator (key collisions).
@@ -631,7 +631,7 @@ that decision.
   MUST require explicit confirmation.
 - AUTHN-31 Deactivating or deleting an account MUST immediately revoke its
   sessions, API keys and scheduled jobs. Removing a role MUST take effect
-  on the next request (STATE-04).
+  on the next request (STATE-16).
 - AUTHN-32 Uniqueness of emails and usernames MUST be checked on a
   normalized form (Unicode NFKC plus case folding). Mail MUST be sent to
   the address as entered. Usernames shown to others SHOULD reject
@@ -747,14 +747,14 @@ that decision.
   to serve a user's request.
 - AUTHZ-26 Jobs that run without a user (system jobs) MUST declare the
   permissions they use and get nothing else. Jobs started by a user run
-  with that user's permissions (ISO-05).
+  with that user's permissions (ISO-12).
 
 ### 6.3 Least privilege for code and services
 
 - AUTHZ-27 Each service, worker and scheduled job MUST use its own
   database user, granted only the tables and operations it needs:
   `SELECT` where it only reads, no `DELETE` where it never deletes, no
-  access to other components' tables (DATA-03). The audit table is
+  access to other components' tables (DATA-02). The audit table is
   insert-only (LOG-06).
 - AUTHZ-28 Read paths SHOULD run on a read-only connection (a read-only
   database user, or `SET TRANSACTION READ ONLY`), so that an injection in
@@ -886,7 +886,7 @@ used to deliver spam.
 - EXT-04 SHOULD isolate vendors with separate worker or connection pools
   (bulkheads) and circuit breakers.
 - EXT-05 MUST NOT make network calls inside a database transaction. Use
-  the outbox (BIZ-14).
+  the outbox (BIZ-11).
 - EXT-06 MUST validate vendor responses against a schema, with size
   limits. Vendor data is untrusted input.
 - EXT-07 MUST honor `429` responses and `Retry-After`.
@@ -981,46 +981,46 @@ UPDATE invoices
 -- Reload and report; do not retry blindly.
 ```
 
-- BIZ-11 Multi-step flows across services or databases MUST use sagas
+- BIZ-08 Multi-step flows across services or databases MUST use sagas
   with compensating actions.
-- BIZ-12 Data mirrored with vendors (payments, subscriptions) MUST have
+- BIZ-09 Data mirrored with vendors (payments, subscriptions) MUST have
   reconciliation jobs that detect and report drift.
 
 ### 9.3 Errors
 
-- BIZ-13 Errors MUST fail closed. An exception in authentication,
+- BIZ-10 Errors MUST fail closed. An exception in authentication,
   authorization, validation or policy evaluation results in deny. No
   catch-all that logs and continues. The whole unit of work MUST roll
   back.
-- BIZ-14 Every side effect that must follow a commit (messages, events,
+- BIZ-11 Every side effect that must follow a commit (messages, events,
   vendor calls) MUST go through the transactional outbox.
-- BIZ-15 Clients MUST receive generic error messages with a correlation
+- BIZ-12 Clients MUST receive generic error messages with a correlation
   ID; details go to logs only.
-- BIZ-16 MUST release every resource (connection, file handle, lock,
+- BIZ-13 MUST release every resource (connection, file handle, lock,
   temporary file) on all error paths (`try/finally`, context managers,
   `defer`).
-- BIZ-17 MUST check return values and handle missing parameters
+- BIZ-14 MUST check return values and handle missing parameters
   explicitly. No implicit default that grants access or skips a check.
 
 ### 9.4 Misuse cases and abuse
 
-- BIZ-18 Every feature MUST list its misuse cases (called twice, out of
+- BIZ-15 Every feature MUST list its misuse cases (called twice, out of
   order, concurrently, with negative or huge values, by the wrong role, on
   another user's object, after cancellation, with an old token, at high
   rate) and cover each with a test or a limit.
-- BIZ-19 Risky new logic SHOULD ship behind a feature flag usable as a
+- BIZ-16 Risky new logic SHOULD ship behind a feature flag usable as a
   kill switch.
-- BIZ-20 Business flows open to automation (signup, booking, purchasing,
+- BIZ-17 Business flows open to automation (signup, booking, purchasing,
   coupons, invitations, voting) MUST have per-account limits and
   plausibility checks against bulk abuse and scalping bots.
 
 ### 9.5 Imports, exports and bulk operations
 
-- BIZ-21 Imports MUST validate every row with the same domain validation
+- BIZ-18 Imports MUST validate every row with the same domain validation
   as the API, enforce file-size, row-count and field-length limits, run
   asynchronously with per-user quotas, and report partial failure
   explicitly (all-or-nothing, or a per-row result file).
-- BIZ-22 Exports MUST be authorized per row, run asynchronously when
+- BIZ-19 Exports MUST be authorized per row, run asynchronously when
   large, and be delivered through short-lived signed links, never as email
   attachments.
 
@@ -1082,7 +1082,7 @@ much as for request input.
   similar) MUST NOT contain untrusted data.
 - INJ-04 MUST type-check inputs before NoSQL queries, so objects cannot
   inject operators (for example `{"$ne": null}` or `$where`).
-- INJ-13 Each datastore has its own parameter API, and code MUST use it:
+- INJ-05 Each datastore has its own parameter API, and code MUST use it:
   - SQL: bind parameters, also inside stored procedures, functions and
     migrations (in PL/pgSQL, `EXECUTE ... USING` for values and
     `format('%I', ...)` for identifiers);
@@ -1094,46 +1094,46 @@ much as for request input.
     never `query_string` syntax or scripts built from user input;
   - graph databases (Cypher, Gremlin): query parameters;
   - LDAP: the library's filter and DN escaping.
-- INJ-14 Second-order injection: values read from our own database,
+- INJ-06 Second-order injection: values read from our own database,
   cache, queue, files or logs are still untrusted when they reach an
   interpreter (PRIN-09), and get the same parameters and encoding as
   request input.
-- INJ-15 `LIKE` and full-text patterns MUST escape `%`, `_` and the escape
+- INJ-07 `LIKE` and full-text patterns MUST escape `%`, `_` and the escape
   character in user input; otherwise the user controls the pattern (data
   probing, slow queries).
-- INJ-16 Structured formats (JSON, XML, YAML, CSV, URLs, query strings,
+- INJ-08 Structured formats (JSON, XML, YAML, CSV, URLs, query strings,
   email headers) MUST be produced with a serializer or builder, never by
   concatenating strings that contain user data.
 
 ### 11.2 Commands and code
 
-- INJ-05 MUST NOT invoke a shell with untrusted input. Use argument arrays
+- INJ-09 MUST NOT invoke a shell with untrusted input. Use argument arrays
   without a shell, put `--` before user-supplied arguments, and allow-list
   values where possible.
-- INJ-06 MUST NOT evaluate untrusted input as code, template or expression
+- INJ-10 MUST NOT evaluate untrusted input as code, template or expression
   (`eval`, `exec`, `Function`, template compilation, EL/OGNL/SpEL,
   server-side template engines).
-- INJ-17 Argument injection: a user value passed to a program MUST NOT be
+- INJ-11 Argument injection: a user value passed to a program MUST NOT be
   able to become an option. Put it after `--` and reject values that start
   with `-`. Tools that also follow URLs or protocols (git, curl, ssh,
   rsync, tar, ImageMagick, ffmpeg) MUST be restricted explicitly, for
   example git `protocol.allow`, ffmpeg `-protocol_whitelist`, an
   ImageMagick security policy.
-- INJ-18 MUST NOT select code by user input: no dynamic `import`,
+- INJ-12 MUST NOT select code by user input: no dynamic `import`,
   `require` or `include`, no class or function lookup by name
   (`getattr`, reflection, `Class.forName`), no template or file inclusion
   by a user-supplied name. Map allowed values to code through a fixed
   table.
-- INJ-19 User input MUST NOT be used as a format string or template:
+- INJ-13 User input MUST NOT be used as a format string or template:
   `printf`-style formats, Python `str.format` (a user-controlled format
   string can read object attributes), `String.format`, logger message
   templates. Pass it as an argument.
-- INJ-20 Document generators are interpreters. LaTeX MUST run with shell
+- INJ-14 Document generators are interpreters. LaTeX MUST run with shell
   escape disabled (`-no-shell-escape`) and restricted file access
   (`openin_any = p`, `openout_any = p`), with user text escaped for LaTeX
   special characters. HTML-to-PDF converters receive escaped HTML and
   follow EXT-22.
-- INJ-21 User-supplied code (formulas, scripts, rules, plugins) MUST NOT
+- INJ-15 User-supplied code (formulas, scripts, rules, plugins) MUST NOT
   run in the application process. Use a purpose-built evaluator with a
   fixed grammar (for example a formula parser), or a separate sandboxed
   process with no network, no filesystem access and CPU, memory and time
@@ -1142,41 +1142,41 @@ much as for request input.
 
 ### 11.3 Output to browsers
 
-- INJ-07 MUST rely on the framework's context-aware auto-escaping for
+- INJ-16 MUST rely on the framework's context-aware auto-escaping for
   HTML. Every bypass (`dangerouslySetInnerHTML`, `v-html`, `|safe`,
-  `raw()`) MUST carry a review comment and use sanitized input (INJ-08).
-- INJ-08 Rich text MUST be sanitized server-side with a maintained
+  `raw()`) MUST carry a review comment and use sanitized input (INJ-17).
+- INJ-17 Rich text MUST be sanitized server-side with a maintained
   allow-list sanitizer. Markdown MUST be rendered with raw HTML disabled,
   then sanitized.
-- INJ-09 Values placed into HTML attributes, URLs, JavaScript, CSS or
+- INJ-18 Values placed into HTML attributes, URLs, JavaScript, CSS or
   JSON embedded in HTML MUST use the encoder for that context.
-- INJ-22 JSON embedded in HTML (`<script>` blocks, data attributes) MUST
+- INJ-19 JSON embedded in HTML (`<script>` blocks, data attributes) MUST
   be serialized with `<`, `>`, `&`, U+2028 and U+2029 escaped, so that
   `</script>` cannot break out. No JSONP.
-- INJ-23 Untrusted values MUST NOT go into inline scripts, event-handler
+- INJ-20 Untrusted values MUST NOT go into inline scripts, event-handler
   attributes (`onclick`), `style` attributes or style sheets.
   URL-bearing attributes (`href`, `src`, `action`, `formaction`) take only
   encoded, scheme-checked URLs (WEB-14).
-- INJ-24 Client-side template injection: user text MUST NOT reach a
+- INJ-21 Client-side template injection: user text MUST NOT reach a
   front-end framework's template compiler (for example `{{ }}` in
   server-rendered HTML that the framework then compiles); render it as
   text.
-- INJ-25 Sanitize last: HTML sanitization MUST run after every other
+- INJ-22 Sanitize last: HTML sanitization MUST run after every other
   transformation (Markdown rendering, truncation, link rewriting, mention
   expansion). Changing sanitized HTML afterwards reopens injection
   (mutation XSS).
 
 ### 11.4 Headers, logs, exports and outbound requests
 
-- INJ-10 Headers, cookies and redirect locations MUST be set through
+- INJ-23 Headers, cookies and redirect locations MUST be set through
   framework APIs; raw CR and LF MUST be rejected (response splitting).
-- INJ-11 Logs MUST be structured, with untrusted values encoded (log
+- INJ-24 Logs MUST be structured, with untrusted values encoded (log
   injection).
-- INJ-12 CSV and spreadsheet exports MUST neutralize cells that begin with
+- INJ-25 CSV and spreadsheet exports MUST neutralize cells that begin with
   `=`, `+`, `-`, `@`, tab or carriage return (formula injection).
 - INJ-26 Logging MUST NOT evaluate lookups or expressions inside messages
   (Log4Shell-style `${...}`). User values go in as structured fields,
-  never as the message template (INJ-19).
+  never as the message template (INJ-13).
 - INJ-27 User values in the URL path, query or headers of an outbound
   request MUST be encoded by the URL and header builders (path segments
   escaped, CR and LF rejected), so that they cannot change the target
@@ -1622,7 +1622,7 @@ code decides whether one cheap request can trigger expensive work.
     from empty and from N-1 to N, against a real database;
   - concurrency: parallel requests against every security limit,
     single-use token and idempotent operation produce exactly one effect
-    or stay within the limit (STATE-05, STATE-06);
+    or stay within the limit (STATE-02, STATE-03);
   - caches and replicas: a revoked session, role or grant is rejected
     immediately, on every instance and on every read path;
   - read-only mode: every writing handler and job is refused, while
@@ -1654,7 +1654,7 @@ code decides whether one cheap request can trigger expensive work.
 | A07 Authentication Failures | AUTHN |
 | A08 Software or Data Integrity Failures | CI-02, CI-03, PARSE-03, EXT-12..16, STATE-23 |
 | A09 Security Logging and Alerting Failures | LOG |
-| A10 Mishandling of Exceptional Conditions | BIZ-13..17, DOS-10..14 |
+| A10 Mishandling of Exceptional Conditions | BIZ-10..14, DOS-10..14 |
 
 
 ## 23. Before committing
@@ -1665,7 +1665,7 @@ code decides whether one cheap request can trigger expensive work.
 - [ ] Data access only through `DataAccess`; IDOR test added (DATA-01,
       TEST-03)
 - [ ] New stores, keys, channels and files are namespaced by owner, and
-      every referenced object is authorized (ISO-10, ISO-15)
+      every referenced object is authorized (ISO-03, ISO-13)
 - [ ] Requests schema-validated; writable fields allow-listed; response
       DTOs used (API-01, AUTHZ-08, AUTHZ-09)
 - [ ] New permissions are assigned to roles explicitly, and nothing lets
@@ -1679,14 +1679,14 @@ code decides whether one cheap request can trigger expensive work.
 - [ ] Every interpreter (database, shell, template engine, document
       generator, logger) gets untrusted data only as parameters,
       arguments or encoded values (INJ)
-- [ ] Output encoded for its context; no unsafe DOM sinks (INJ-07..09,
+- [ ] Output encoded for its context; no unsafe DOM sinks (INJ-16..18,
       WEB-13)
 - [ ] New invariants backed by constraints; state changes through
       transition functions (BIZ-02, BIZ-07)
 - [ ] Retryable mutating endpoints accept an idempotency key, scoped to
-      the actor (STATE-02, STATE-11)
+      the actor (STATE-08, STATE-10)
 - [ ] Security limits and single-use tokens are enforced atomically
-      (STATE-05, STATE-06)
+      (STATE-02, STATE-03)
 - [ ] Cache keys include the actor where the value depends on it, and
       security changes invalidate them (STATE-22, STATE-25)
 - [ ] New handlers declare whether they read or write, and reading
@@ -1694,7 +1694,7 @@ code decides whether one cheap request can trigger expensive work.
 - [ ] External calls have timeouts and bounded retries, and run outside
       database transactions (EXT-02, EXT-03, EXT-05)
 - [ ] Errors fail closed; nothing swallowed; resources released on error
-      paths (BIZ-13, BIZ-16)
+      paths (BIZ-10, BIZ-13)
 - [ ] No secrets, tokens, OTPs or personal data in code, logs, errors or
       fixtures (SEC-01, LOG-03)
 - [ ] Security-relevant actions write audit records and emit security
@@ -1702,8 +1702,8 @@ code decides whether one cheap request can trigger expensive work.
 - [ ] New dependency justified and verified; lockfile updated (AI-01,
       CI-03)
 - [ ] Tests written from the specification, including misuse cases; bug
-      fixes start with a failing test (AI-05, BIZ-18, TEST-02)
-- [ ] Migrations backward compatible (DATA-14)
+      fixes start with a failing test (AI-05, BIZ-15, TEST-02)
+- [ ] Migrations backward compatible (DATA-08)
 
 
 ## 24. References
