@@ -153,6 +153,9 @@ own commit before the change that needs it.
   database.
 - PRIN-10 Users are isolated from each other by default: one user's data
   is invisible to another unless an explicit grant says otherwise (ISO).
+- PRIN-11 Whatever a user can check and then act on, they can race. Every
+  request may arrive twice, out of order, or in parallel with itself
+  (STATE).
 
 Layer model:
 
@@ -342,6 +345,35 @@ that decision.
 - STATE-01 Check-then-act sequences MUST be atomic: a guarded update,
   `SELECT ... FOR UPDATE`, an optimistic version column, or a unique
   constraint. Counters MUST use atomic increments.
+- STATE-05 Limits that protect security MUST be enforced atomically: OTP
+  and login attempt counters, rate limits, quotas, coupon and voucher
+  redemption, invitation use, balances. Attackers send many requests at
+  once to get past a read-check-write sequence (limit overrun); use an
+  atomic increment-and-compare in the database or shared store, or a
+  unique constraint.
+- STATE-06 Single-use tokens (password reset, invitation, one-time code,
+  one-time share link) MUST be consumed by one conditional update, and the
+  action runs only if exactly one row changed:
+
+  ```sql
+  UPDATE tokens SET used_at = now()
+   WHERE token_hash = :h AND used_at IS NULL AND expires_at > now();
+  ```
+
+- STATE-07 Read-modify-write of permission, balance or status fields MUST
+  use a row lock or an optimistic version check; never last-write-wins
+  (lost updates).
+- STATE-08 Jobs processed by parallel workers MUST be claimed atomically
+  (`SELECT ... FOR UPDATE SKIP LOCKED`, or a lease with an expiry). A
+  worker whose lease has expired MUST NOT commit its result; check a
+  fencing token or version on commit.
+- STATE-09 Distributed locks (Redis and similar) are advisory and can
+  expire in the middle of an operation. Security-relevant correctness MUST
+  NOT depend on them alone; back them with a database constraint or a
+  fencing token.
+- STATE-10 Parallel work inside one request (threads, tasks, promises)
+  MUST receive the request context explicitly (ISO-24) and MUST NOT share
+  mutable state without synchronization.
 
 ### 4.2 Idempotency
 
@@ -349,6 +381,25 @@ that decision.
   `Idempotency-Key`, store key, request hash and response, replay the
   stored response, and reject reuse of a key with a different request.
 - STATE-03 Queue consumers MUST be idempotent; delivery is at-least-once.
+- STATE-11 Idempotency keys MUST be scoped to the actor and the operation,
+  looked up as `(actor, operation, key)`. A key sent by another user MUST
+  NOT return the first user's stored response (ISO-15).
+- STATE-12 Two concurrent requests with the same key MUST NOT both run:
+  reserve the key first under a unique constraint (status "in progress");
+  the second request waits or gets `409`.
+- STATE-13 Stored responses MUST expire (for example after 24 hours) and
+  are personal data: they get the same protection and deletion as the
+  data they contain.
+- STATE-14 Effects MUST be idempotent in the data, not only in the API
+  layer: unique constraints on natural keys (external payment ID, vendor
+  event ID, message ID) make it impossible for a retry to create a second
+  record.
+- STATE-15 A queue consumer MUST record the message ID in the same
+  transaction as the message's effect, so that a crash between effect and
+  acknowledgment cannot apply it twice.
+- STATE-16 Operations that are not idempotent MUST NOT be retried
+  automatically (by clients, proxies, job runners or SDK retry settings)
+  unless they carry an idempotency key (EXT-03).
 
 ### 4.3 Primary and replicas
 
@@ -1462,8 +1513,9 @@ code decides whether one cheap request can trigger expensive work.
     arithmetic, with property-based tests where inputs vary widely;
   - database: constraints, row-level security if used, and migrations
     from empty and from N-1 to N, against a real database;
-  - concurrency: parallel requests on a unique or idempotent operation
-    produce exactly one effect;
+  - concurrency: parallel requests against every security limit,
+    single-use token and idempotent operation produce exactly one effect
+    or stay within the limit (STATE-05, STATE-06);
   - webhooks and vendors: bad signature, stale timestamp, replayed event,
     vendor timeout, malformed response;
   - sign-up abuse: repeated sign-ups for one address, after the pending
@@ -1487,7 +1539,7 @@ code decides whether one cheap request can trigger expensive work.
 | A03 Software Supply Chain Failures | AI-01, CI |
 | A04 Cryptographic Failures | CRY, SEC, AUTHN-03 |
 | A05 Injection (includes XSS) | INJ, WEB-13..16, PARSE |
-| A06 Insecure Design | PRIN, BIZ, TEST-01, DOS |
+| A06 Insecure Design | PRIN, BIZ, STATE, TEST-01, DOS |
 | A07 Authentication Failures | AUTHN |
 | A08 Software or Data Integrity Failures | CI-02, CI-03, PARSE-03, EXT-12..16 |
 | A09 Security Logging and Alerting Failures | LOG |
@@ -1520,7 +1572,10 @@ code decides whether one cheap request can trigger expensive work.
       WEB-13)
 - [ ] New invariants backed by constraints; state changes through
       transition functions (BIZ-02, BIZ-07)
-- [ ] Retryable mutating endpoints accept an idempotency key (STATE-02)
+- [ ] Retryable mutating endpoints accept an idempotency key, scoped to
+      the actor (STATE-02, STATE-11)
+- [ ] Security limits and single-use tokens are enforced atomically
+      (STATE-05, STATE-06)
 - [ ] External calls have timeouts and bounded retries, and run outside
       database transactions (EXT-02, EXT-03, EXT-05)
 - [ ] Errors fail closed; nothing swallowed; resources released on error
