@@ -95,8 +95,8 @@ own commit before the change that needs it.
   that reads the outbox and calls the email or SMS provider through its
   vendor adapter (EXT-01).
 - Does: renders templates with auto-escaping (MSG-05); applies rate
-  limits and budgets (MSG-09, MSG-11, MSG-12); sends with an idempotency
-  key and retries (MSG-15).
+  limits, budgets and the suppression list (MSG-09, MSG-11, MSG-12,
+  MSG-18..21); sends with an idempotency key and retries (MSG-15).
 - Used by: domain code. Nothing else calls a provider SDK.
 
 #### Audit log writer: `AuditLog`
@@ -489,6 +489,55 @@ the database user still cannot touch other databases or change the schema.
   attempts, and records the provider message ID and delivery status.
 - MSG-16 Non-production environments MUST route email and SMS to a sink,
   with an explicit allow-list of test recipients.
+
+### 6.4 Sign-up and verification messages
+
+Anyone can type someone else's email address or phone number into a
+sign-up form, and repeat it every time the pending sign-up expires. These
+rules protect the owner of that address and stop the form from being
+used to deliver spam.
+
+- MSG-17 A sign-up MUST stay pending until its email address or phone
+  number is verified. A pending sign-up MUST NOT receive any message other
+  than the verification message, MUST NOT be visible to other users, and
+  MUST expire (for example after 24 hours).
+- MSG-18 Verification messages MUST be rate-limited per destination,
+  independently of IP, session and device, with growing intervals (for
+  example at most 3 per 24 hours and 5 per 30 days). These counters MUST
+  outlive the pending sign-up, so that expiring and retrying does not
+  reset them.
+- MSG-19 Limits and suppression MUST be keyed on a delivery key, not on the
+  address as typed: lowercase, without a `+tag`, and without dots for
+  providers that ignore them (such as gmail.com); phone numbers in E.164.
+  Store an HMAC of the key, not the address. Also limit verification
+  messages per recipient domain.
+- MSG-20 Every verification email MUST carry a "This wasn't me" link that
+  works without signing in. It opens a page whose POST button (MSG-07)
+  cancels the pending sign-up and puts the delivery key on a sign-up
+  suppression list. The same action MAY be offered through the
+  `List-Unsubscribe` and `List-Unsubscribe-Post` headers.
+- MSG-21 For a suppressed delivery key, sign-up and resend requests MUST
+  send nothing, and the response MUST look exactly as if a message had
+  been sent (AUTHN-09). Spam complaints and hard bounces on verification
+  messages MUST suppress the key as well (MSG-10).
+- MSG-22 Suppression MUST be lifted only on proof of control of the
+  address: for example an unblock link the owner explicitly requests,
+  limited to one message per delivery key per 30 days.
+- MSG-23 Verification and invitation messages MUST NOT contain text the
+  requester typed (name, company, comment); sign-up forms are a known
+  channel for delivering spam and phishing text under the app's name.
+  Greet users by name only after verification.
+- MSG-24 If the address already belongs to an account, MUST NOT send a new
+  verification link. At most one "someone tried to sign up with your
+  address" notice per period MAY be sent instead; the response stays
+  identical (AUTHN-09).
+- MSG-25 Phone numbers get the same per-destination limits and
+  suppression (MSG-18..21). An inbound `STOP` reply, where the provider
+  supports it, MUST suppress the number. An unauthenticated visitor SHOULD
+  NOT be able to trigger an SMS at all: verify the email address first, or
+  put the SMS step behind bot detection (MSG-11).
+- MSG-26 Limit hits and attempts on suppressed keys MUST emit
+  `SecurityEvent`s.
 
 
 ## 7. Third-party systems (EXT)
@@ -1139,6 +1188,9 @@ code decides whether one cheap request can trigger expensive work.
     produce exactly one effect;
   - webhooks and vendors: bad signature, stale timestamp, replayed event,
     vendor timeout, malformed response;
+  - sign-up abuse: repeated sign-ups for one address, after the pending
+    sign-up expires and with `+tag` or dot variants, send no more messages
+    than MSG-18 allows, and a suppressed address gets none;
   - security regressions: CSRF token and `Origin` checks, SSRF block
     list, headers, cookie flags, upload type checks, fail-to-start
     configuration, kill switches, rate limits and quotas;
