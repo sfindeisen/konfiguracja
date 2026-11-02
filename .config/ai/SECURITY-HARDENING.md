@@ -480,7 +480,9 @@ that decision.
   constant time.
 
 
-## 5. Authorization (AUTHZ)
+## 5. Authorization, roles and least privilege (AUTHZ)
+
+### 5.1 Policy and enforcement
 
 - AUTHZ-01 Permissions MUST be verbs on resources (`invoice.read`,
   `invoice.approve`). Roles are named bundles of permissions. A user MAY
@@ -530,6 +532,65 @@ that decision.
 - AUTHZ-16 MUST keep an authorization matrix (role x action x ownership)
   as test data and generate one test per cell, including the "another
   user's object" and "no role" cases (TEST-03).
+
+### 5.2 Roles
+
+- AUTHZ-17 New users MUST get the least-privileged role. Elevated roles
+  are granted explicitly by someone allowed to grant them, never by
+  default, by sign-up input or by self-service.
+- AUTHZ-18 Every role's permissions MUST be listed explicitly. A new
+  permission is denied to every role until it is added to the roles that
+  need it. No wildcard permissions (`invoice.*`, `*`) outside documented
+  platform-staff roles.
+- AUTHZ-19 Admin roles get the permissions their job needs, not
+  everything. Other users' credentials (password hashes, MFA secrets, API
+  keys, tokens) MUST NOT be readable by any role. Reading other users'
+  private content (messages, documents) needs a permission of its own and
+  is audited (LOG-07).
+- AUTHZ-20 Roles that can change roles, credentials, money or other users'
+  data MUST require MFA, phishing-resistant where available, and step-up
+  for each sensitive action (AUTHN-22).
+- AUTHZ-21 Temporary elevation (support, incident work) SHOULD be a grant
+  with an expiry that is revoked automatically, not a permanent role
+  change.
+- AUTHZ-22 Permissions MUST be resolved on each request from the source of
+  truth, or from a cache invalidated on change (AUTHZ-14). Tokens MUST NOT
+  carry long-lived role claims that outlive a revocation (AUTHN-26).
+- AUTHZ-23 These escalation paths MUST be closed: editing one's own roles
+  or grants; creating API keys, invitations, share links or OAuth grants
+  with more permissions than one holds; resetting the credentials or MFA
+  of, or impersonating, a user with more privileges; joining a group or
+  role by self-service unless it is explicitly open; gaining a role
+  through an unverified email domain.
+- AUTHZ-24 No shared accounts: every action is attributable to one actor.
+  Service accounts exist per service and purpose, and humans MUST NOT use
+  them.
+- AUTHZ-25 Confused deputy: code acting on behalf of a user (jobs,
+  internal services, vendor callbacks, LLM tools) MUST check that user's
+  permissions, not its own. A privileged system identity MUST NOT be used
+  to serve a user's request.
+- AUTHZ-26 Jobs that run without a user (system jobs) MUST declare the
+  permissions they use and get nothing else. Jobs started by a user run
+  with that user's permissions (ISO-05).
+
+### 5.3 Least privilege for code and services
+
+- AUTHZ-27 Each service, worker and scheduled job MUST use its own
+  database user, granted only the tables and operations it needs:
+  `SELECT` where it only reads, no `DELETE` where it never deletes, no
+  access to other components' tables (DATA-03). The audit table is
+  insert-only (LOG-06).
+- AUTHZ-28 Read paths SHOULD run on a read-only connection (a read-only
+  database user, or `SET TRANSACTION READ ONLY`), so that an injection in
+  a read path cannot write.
+- AUTHZ-29 Code gets narrow capabilities: pass a component only the
+  repository, client or key it needs, not a container of all services, a
+  superuser connection or the whole configuration.
+- AUTHZ-30 Credentials for third parties and cloud services MUST be scoped
+  per integration and per environment, with the narrowest scopes or IAM
+  permissions that work (EXT-09, SEC-04).
+- AUTHZ-31 Processes run as a non-root user without extra capabilities
+  (CFG-04) and write only to the directories they need.
 
 
 ## 6. Transactional email and SMS (MSG)
@@ -1383,6 +1444,8 @@ code decides whether one cheap request can trigger expensive work.
     share is revoked;
   - authorization matrix: each role x action x ownership cell allows or
     denies as specified (AUTHZ-16);
+  - privilege escalation: each path in AUTHZ-23 is attempted and fails,
+    and a revoked role or grant stops working on the next request;
   - domain rules: invariants, state transitions, money and time
     arithmetic, with property-based tests where inputs vary widely;
   - database: constraints, row-level security if used, and migrations
@@ -1430,6 +1493,8 @@ code decides whether one cheap request can trigger expensive work.
       every referenced object is authorized (ISO-10, ISO-15)
 - [ ] Requests schema-validated; writable fields allow-listed; response
       DTOs used (API-01, AUTHZ-08, AUTHZ-09)
+- [ ] New permissions are assigned to roles explicitly, and nothing lets
+      a user grant more than they hold (AUTHZ-18, AUTHZ-23)
 - [ ] New state-changing endpoints CSRF-protected; no GET side effects
       (WEB-07, WEB-08)
 - [ ] New endpoints have size, rate, page-size and time limits; expensive
