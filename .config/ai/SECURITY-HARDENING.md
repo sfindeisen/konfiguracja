@@ -482,6 +482,37 @@ that decision.
   endpoints without authentication (HTTP-04), and code MUST NOT write
   dumps or profiles to shared or world-readable locations.
 
+### 4.6 Read-only mode
+
+- STATE-34 Read-only mode, for the whole application (maintenance,
+  incident response) or for one account (suspended or frozen), MUST be
+  enforced on the server by one central gate. Every handler declares in
+  its policy whether it reads or writes (AUTHZ-05); undeclared handlers
+  count as writing, and writing handlers are denied while the mode
+  applies.
+- STATE-35 Reading handlers MUST NOT have side effects (WEB-08); otherwise
+  read-only mode keeps writing.
+- STATE-36 The gate MUST also stop background jobs, schedulers, queue
+  consumers and the outbox worker from changing data or sending messages.
+  Inbound webhooks get a retryable status (for example `503`), so that the
+  sender delivers them later.
+- STATE-37 Application-wide read-only mode SHOULD also hold in the
+  database: switch to a read-only database user or read-only
+  transactions, so that a handler the gate missed fails instead of
+  writing.
+- STATE-38 Security state keeps working in read-only mode: sign-in
+  throttling, attempt counters, session revocation, logout and audit
+  records MUST still be written to a store that stays writable, or the
+  operation they protect MUST be refused. A check MUST NOT be skipped
+  because its write would fail.
+- STATE-39 Read-only mode MUST NOT relax authentication or authorization:
+  no anonymous or cached access "during maintenance".
+- STATE-40 Read-only mode for one account applies to everything acting for
+  it: sessions, API keys, scheduled jobs and integrations.
+- STATE-41 The mode is read from the shared store, so that every instance
+  applies it at once. Switching it is a privileged, audited action
+  (LOG-07).
+
 
 ## 5. Identity and authentication (AUTHN)
 
@@ -1535,7 +1566,8 @@ code decides whether one cheap request can trigger expensive work.
 
 - LOG-10 Kill switches MUST exist and be covered by tests: revoke sessions
   per user and globally; invalidate all API keys of a user; disable an
-  integration or feature flag; put an account into read-only mode.
+  integration or feature flag; put the application or one account into
+  read-only mode (STATE-34).
 - LOG-11 Secrets MUST be hot-reloadable (SEC-03), so a leaked key can be
   rotated without a deploy.
 
@@ -1593,6 +1625,8 @@ code decides whether one cheap request can trigger expensive work.
     or stay within the limit (STATE-05, STATE-06);
   - caches and replicas: a revoked session, role or grant is rejected
     immediately, on every instance and on every read path;
+  - read-only mode: every writing handler and job is refused, while
+    throttles, revocations and audit records are still written;
   - webhooks and vendors: bad signature, stale timestamp, replayed event,
     vendor timeout, malformed response;
   - sign-up abuse: repeated sign-ups for one address, after the pending
@@ -1655,6 +1689,8 @@ code decides whether one cheap request can trigger expensive work.
       (STATE-05, STATE-06)
 - [ ] Cache keys include the actor where the value depends on it, and
       security changes invalidate them (STATE-22, STATE-25)
+- [ ] New handlers declare whether they read or write, and reading
+      handlers have no side effects (STATE-34, STATE-35)
 - [ ] External calls have timeouts and bounded retries, and run outside
       database transactions (EXT-02, EXT-03, EXT-05)
 - [ ] Errors fail closed; nothing swallowed; resources released on error
