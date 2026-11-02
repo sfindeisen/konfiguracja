@@ -18,13 +18,13 @@ gi.require_version("Wnck", "3.0")
 from gi.repository import Gtk, Wnck
 
 # The workspace to lock: its name (a string) or its number (an int, from 1).
-WORKSPACE = "Distractions"
+WORKSPACE = "offspace"
 
 # When it is locked: (weekdays, start, end), with Monday being 0. The end
 # is exclusive; a window must not cross midnight, so split it in two.
 BLOCKED = [
-    (range(0, 5), "08:00", "12:00"),
-    (range(0, 5), "13:00", "17:30"),
+    (range(0, 6), "08:00", "19:00"),  # Mon-Sat
+    ((6,), "11:00", "18:30"),         # Sun
 ]
 
 
