@@ -94,9 +94,9 @@ own commit before the change that needs it.
   table inside the current database transaction, plus a background worker
   that reads the outbox and calls the email or SMS provider through its
   vendor adapter (EXT-01).
-- Does: renders templates with auto-escaping (MSG-05); applies rate
-  limits, budgets and the suppression list (MSG-09, MSG-11, MSG-12,
-  MSG-18..21); sends with an idempotency key and retries (MSG-15).
+- Does: renders templates with auto-escaping (MSG-03); applies rate
+  limits, budgets and the suppression list (MSG-07, MSG-09, MSG-10,
+  MSG-16..19); sends with an idempotency key and retries (MSG-13).
 - Used by: domain code. Nothing else calls a provider SDK.
 
 #### Audit log writer: `AuditLog`
@@ -112,7 +112,7 @@ own commit before the change that needs it.
 - What: a function such as `security_event(name, context, **fields)` that
   emits a structured log line or metric with a fixed event name, through
   the project's existing logging or metrics library. Operations build
-  alerts on these names (LOG-10).
+  alerts on these names (LOG-09).
 
 #### Configuration loader: `Config`
 
@@ -127,7 +127,7 @@ own commit before the change that needs it.
   (BIZ-04). Domain code never reads the system clock directly.
 
 
-## 2. Principles (PRIN)
+## 1. Principles (PRIN)
 
 - PRIN-01 Deny by default; fail closed. Missing policy, missing actor or
   an unexpected exception means deny.
@@ -181,9 +181,9 @@ the data-access layer still scopes queries to what the actor may see, and
 the database user still cannot touch other databases or change the schema.
 
 
-## 3. Data access and multiple databases (DATA)
+## 2. Data access and multiple databases (DATA)
 
-### 3.1 Data access
+### 2.1 Data access
 
 - DATA-01 Each database MUST have exactly one data-access layer
   (`DataAccess`). Feature code MUST NOT open connections, use the database
@@ -211,7 +211,7 @@ the database user still cannot touch other databases or change the schema.
 - DATA-08 MUST return 404, not 403, for objects the actor may not see, so
   their existence is not revealed.
 
-### 3.2 Several databases, one consistent state
+### 2.2 Several databases, one consistent state
 
 - DATA-09 Each kind of data MUST have exactly one source of truth. Copies
   in other stores (caches, search indices, read replicas, reporting
@@ -235,16 +235,16 @@ the database user still cannot touch other databases or change the schema.
 - DATA-15 Identifiers that travel between databases SHOULD be globally
   unique (UUIDs), so records from different stores cannot be confused.
 - DATA-16 Deleting data MUST reach every store that holds a copy
-  (PRIV-06).
+  (PRIV-03).
 - DATA-17 Background jobs MUST carry the actor in the payload, re-create
   the `RequestContext` and re-check authorization when they run.
 - DATA-18 Platform-staff access to user data MUST go through a separate,
   audited code path with explicit break-glass approval.
 
 
-## 4. Identity and authentication (AUTHN)
+## 3. Identity and authentication (AUTHN)
 
-### 4.1 General
+### 3.1 General
 
 - AUTHN-01 MUST use a maintained authentication library or identity
   provider. MUST NOT implement password hashing, OTP generation, session
@@ -252,7 +252,7 @@ the database user still cannot touch other databases or change the schema.
 - AUTHN-02 MUST NOT ship default, sample or hard-coded credentials for any
   role or environment.
 
-### 4.2 Passwords
+### 3.2 Passwords
 
 - AUTHN-03 MUST hash passwords with Argon2id (preferred), scrypt or bcrypt
   at a tuned cost. bcrypt ignores input beyond 72 bytes; if bcrypt is used,
@@ -269,7 +269,7 @@ the database user still cannot touch other databases or change the schema.
   bound hashing cost.
 - AUTHN-06 MUST apply rate limiting before computing a password hash.
 
-### 4.3 Brute force and enumeration
+### 3.3 Brute force and enumeration
 
 - AUTHN-07 MUST throttle login, signup, password reset and OTP
   verification per account and per client IP (the trusted client IP,
@@ -284,7 +284,7 @@ the database user still cannot touch other databases or change the schema.
 - AUTHN-10 SHOULD apply bot detection on unauthenticated flows that cost
   money or send messages.
 
-### 4.4 Second factors and one-time codes
+### 3.4 Second factors and one-time codes
 
 - AUTHN-11 MUST support passkeys (WebAuthn) and SHOULD make them the
   default second factor. MUST allow several passkeys per user.
@@ -308,7 +308,7 @@ the database user still cannot touch other databases or change the schema.
   serve as a factor or a recovery channel. Phone numbers MUST be stored in
   E.164 format.
 
-### 4.5 Recovery and sensitive changes
+### 3.5 Recovery and sensitive changes
 
 - AUTHN-19 Password-reset tokens MUST have at least 128 bits of entropy,
   be stored hashed, be single use, expire within 15 to 60 minutes, and be
@@ -323,7 +323,7 @@ the database user still cannot touch other databases or change the schema.
   admin roles. MUST notify the previous address or number with a way to
   report or undo the change.
 
-### 4.6 Sessions and tokens
+### 3.6 Sessions and tokens
 
 - AUTHN-23 Session cookies MUST be `__Host-` prefixed (no `Domain`
   attribute, so they are never sent to other subdomains), `Secure`,
@@ -339,7 +339,7 @@ the database user still cannot touch other databases or change the schema.
   possible; tokens MUST NOT be stored in `localStorage` or
   `sessionStorage`.
 
-### 4.7 SSO and federation
+### 3.7 SSO and federation
 
 - AUTHN-27 OIDC and OAuth: MUST use `state` and `nonce`, PKCE and
   exact-match redirect URIs, and MUST validate signature, issuer and
@@ -350,7 +350,7 @@ the database user still cannot touch other databases or change the schema.
   identity provider unless the email is verified and that provider is
   configured as authoritative for the email's domain.
 
-### 4.8 Invitations and account lifecycle
+### 3.8 Invitations and account lifecycle
 
 - AUTHN-29 Invitation tokens MUST be random, stored hashed, single use,
   expiring, and bound to the invited email. The role MUST come
@@ -365,7 +365,7 @@ the database user still cannot touch other databases or change the schema.
   the address as entered. Usernames shown to others SHOULD reject
   mixed-script and confusable characters.
 
-### 4.9 API keys, machine identities and back office
+### 3.9 API keys, machine identities and back office
 
 - AUTHN-33 API keys MUST be scoped to one account and an explicit
   permission set, MUST expire, MUST be stored hashed and shown once, MUST
@@ -384,7 +384,7 @@ the database user still cannot touch other databases or change the schema.
   constant time.
 
 
-## 5. Authorization (AUTHZ)
+## 4. Authorization (AUTHZ)
 
 - AUTHZ-01 Permissions MUST be verbs on resources (`invoice.read`,
   `invoice.approve`). Roles are named bundles of permissions. A user MAY
@@ -436,34 +436,34 @@ the database user still cannot touch other databases or change the schema.
   user's object" and "no role" cases (TEST-03).
 
 
-## 6. Transactional email and SMS (MSG)
+## 5. Transactional email and SMS (MSG)
 
-### 6.1 Email
+### 5.1 Email
 
 - MSG-01 MUST send all email and SMS through `MessageSender` via the
-  outbox (MSG-15).
-- MSG-04 Users MUST NOT control the `From` address. Messages sent on a
+  outbox (MSG-13).
+- MSG-02 Users MUST NOT control the `From` address. Messages sent on a
   user's behalf (invitations, shares) go out from the app's domain; the
   user's name MAY appear in the display name, sanitized, and their address
   MAY be used as `Reply-To`.
-- MSG-05 Templates MUST auto-escape every variable; no raw user HTML; CR
+- MSG-03 Templates MUST auto-escape every variable; no raw user HTML; CR
   and LF MUST be stripped from every value that reaches a header; every
   message MUST include a plain-text part. User text MUST NOT be compiled
   as a template.
-- MSG-06 Links MUST be built from the configured base URL (AUTHN-20).
-- MSG-07 Confirmation and magic links MUST NOT perform the action on GET.
+- MSG-04 Links MUST be built from the configured base URL (AUTHN-20).
+- MSG-05 Confirmation and magic links MUST NOT perform the action on GET.
   They open a page that performs it on POST, because mail scanners
   prefetch links.
-- MSG-08 Emails SHOULD NOT contain sensitive data; link to the app
+- MSG-06 Emails SHOULD NOT contain sensitive data; link to the app
   instead.
-- MSG-09 Invitations, shares and notifications MUST limit free text and
+- MSG-07 Invitations, shares and notifications MUST limit free text and
   MUST be rate-limited per sender and per recipient.
-- MSG-10 MUST process bounce and complaint webhooks and maintain a
+- MSG-08 MUST process bounce and complaint webhooks and maintain a
   suppression list; MUST stop sending to hard-bounced addresses.
 
-### 6.2 SMS
+### 5.2 SMS
 
-- MSG-11 MUST implement SMS pumping controls in code:
+- MSG-09 MUST implement SMS pumping controls in code:
   - a destination-country allow-list;
   - rate limits per number, number prefix, client IP, device and account,
     with increasing delays between resends;
@@ -471,78 +471,78 @@ the database user still cannot touch other databases or change the schema.
   - line-type lookup (send to mobile numbers only) where available;
   - a verify-rate metric (codes verified / codes sent) per country,
     emitted as a `SecurityEvent`.
-- MSG-12 MUST enforce an SMS budget in the app, globally and per account:
+- MSG-10 MUST enforce an SMS budget in the app, globally and per account:
   a counter that stops sending and emits a `SecurityEvent` when exceeded,
   independent of any provider limit.
-- MSG-13 SMS text MUST be short and MUST NOT put links next to codes. It
+- MSG-11 SMS text MUST be short and MUST NOT put links next to codes. It
   SHOULD end with the origin-bound line `@app.example.com #123456` for
   WebOTP autofill.
-- MSG-14 MUST NOT treat a phone number as a permanent identity; numbers
+- MSG-12 MUST NOT treat a phone number as a permanent identity; numbers
   are recycled. Re-verify before high-risk use.
 
-### 6.3 Delivery pipeline
+### 5.3 Delivery pipeline
 
-- MSG-15 The message request MUST be written to an outbox table in the
+- MSG-13 The message request MUST be written to an outbox table in the
   same transaction as the business change. A worker sends it with an
   idempotency key per message, retries with exponential backoff and jitter
   on timeouts and 5xx responses, moves it to a dead-letter queue after N
   attempts, and records the provider message ID and delivery status.
-- MSG-16 Non-production environments MUST route email and SMS to a sink,
+- MSG-14 Non-production environments MUST route email and SMS to a sink,
   with an explicit allow-list of test recipients.
 
-### 6.4 Sign-up and verification messages
+### 5.4 Sign-up and verification messages
 
 Anyone can type someone else's email address or phone number into a
 sign-up form, and repeat it every time the pending sign-up expires. These
 rules protect the owner of that address and stop the form from being
 used to deliver spam.
 
-- MSG-17 A sign-up MUST stay pending until its email address or phone
+- MSG-15 A sign-up MUST stay pending until its email address or phone
   number is verified. A pending sign-up MUST NOT receive any message other
   than the verification message, MUST NOT be visible to other users, and
   MUST expire (for example after 24 hours).
-- MSG-18 Verification messages MUST be rate-limited per destination,
+- MSG-16 Verification messages MUST be rate-limited per destination,
   independently of IP, session and device, with growing intervals (for
   example at most 3 per 24 hours and 5 per 30 days). These counters MUST
   outlive the pending sign-up, so that expiring and retrying does not
   reset them.
-- MSG-19 Limits and suppression MUST be keyed on a delivery key, not on the
+- MSG-17 Limits and suppression MUST be keyed on a delivery key, not on the
   address as typed: lowercase, without a `+tag`, and without dots for
   providers that ignore them (such as gmail.com); phone numbers in E.164.
   Store an HMAC of the key, not the address. Also limit verification
   messages per recipient domain.
-- MSG-20 Every verification email MUST carry a "This wasn't me" link that
-  works without signing in. It opens a page whose POST button (MSG-07)
+- MSG-18 Every verification email MUST carry a "This wasn't me" link that
+  works without signing in. It opens a page whose POST button (MSG-05)
   cancels the pending sign-up and puts the delivery key on a sign-up
   suppression list. The same action MAY be offered through the
   `List-Unsubscribe` and `List-Unsubscribe-Post` headers.
-- MSG-21 For a suppressed delivery key, sign-up and resend requests MUST
+- MSG-19 For a suppressed delivery key, sign-up and resend requests MUST
   send nothing, and the response MUST look exactly as if a message had
   been sent (AUTHN-09). Spam complaints and hard bounces on verification
-  messages MUST suppress the key as well (MSG-10).
-- MSG-22 Suppression MUST be lifted only on proof of control of the
+  messages MUST suppress the key as well (MSG-08).
+- MSG-20 Suppression MUST be lifted only on proof of control of the
   address: for example an unblock link the owner explicitly requests,
   limited to one message per delivery key per 30 days.
-- MSG-23 Verification and invitation messages MUST NOT contain text the
+- MSG-21 Verification and invitation messages MUST NOT contain text the
   requester typed (name, company, comment); sign-up forms are a known
   channel for delivering spam and phishing text under the app's name.
   Greet users by name only after verification.
-- MSG-24 If the address already belongs to an account, MUST NOT send a new
+- MSG-22 If the address already belongs to an account, MUST NOT send a new
   verification link. At most one "someone tried to sign up with your
   address" notice per period MAY be sent instead; the response stays
   identical (AUTHN-09).
-- MSG-25 Phone numbers get the same per-destination limits and
-  suppression (MSG-18..21). An inbound `STOP` reply, where the provider
+- MSG-23 Phone numbers get the same per-destination limits and
+  suppression (MSG-16..19). An inbound `STOP` reply, where the provider
   supports it, MUST suppress the number. An unauthenticated visitor SHOULD
   NOT be able to trigger an SMS at all: verify the email address first, or
-  put the SMS step behind bot detection (MSG-11).
-- MSG-26 Limit hits and attempts on suppressed keys MUST emit
+  put the SMS step behind bot detection (MSG-09).
+- MSG-24 Limit hits and attempts on suppressed keys MUST emit
   `SecurityEvent`s.
 
 
-## 7. Third-party systems (EXT)
+## 6. Third-party systems (EXT)
 
-### 7.1 Outbound calls
+### 6.1 Outbound calls
 
 - EXT-01 Each vendor MUST be wrapped in exactly one adapter. Domain code
   MUST NOT use vendor SDK types.
@@ -568,7 +568,7 @@ used to deliver spam.
   payment provider's hosted fields or redirect, and store only provider
   tokens.
 
-### 7.2 Inbound webhooks
+### 6.2 Inbound webhooks
 
 - EXT-12 MUST verify the signature (usually an HMAC over the raw body) in
   constant time with a per-vendor secret, before parsing the payload.
@@ -582,7 +582,7 @@ used to deliver spam.
 - EXT-16 For state that matters (payment succeeded, document signed) MUST
   re-fetch the object from the vendor's API by ID before acting.
 
-### 7.3 User-controlled URLs (SSRF)
+### 6.3 User-controlled URLs (SSRF)
 
 - EXT-17 Every request to a user-supplied URL (webhook targets, URL
   imports, avatar fetches, link previews, renderers) MUST go through
@@ -611,9 +611,9 @@ used to deliver spam.
 - EXT-25 The repo MUST contain the list of hosts the app legitimately
   calls (egress allow-list), so operations can enforce it.
 
-## 8. Business logic and data integrity (BIZ)
+## 7. Business logic and data integrity (BIZ)
 
-### 8.1 Invariants and types
+### 7.1 Invariants and types
 
 - BIZ-01 Each aggregate MUST document its invariants next to its code.
 - BIZ-02 Invariants MUST be enforced by database constraints wherever
@@ -634,7 +634,7 @@ used to deliver spam.
 - BIZ-06 Validation MUST happen at the edge (schema) and in the domain
   (business rules). Client-side validation is UX only.
 
-### 8.2 State machines and concurrency
+### 7.2 State machines and concurrency
 
 - BIZ-07 State changes MUST go through one transition function per
   aggregate that validates the transition and writes it with a guard:
@@ -660,7 +660,7 @@ UPDATE invoices
 - BIZ-12 Data mirrored with vendors (payments, subscriptions) MUST have
   reconciliation jobs that detect and report drift.
 
-### 8.3 Errors
+### 7.3 Errors
 
 - BIZ-13 Errors MUST fail closed. An exception in authentication,
   authorization, validation or policy evaluation results in deny. No
@@ -676,7 +676,7 @@ UPDATE invoices
 - BIZ-17 MUST check return values and handle missing parameters
   explicitly. No implicit default that grants access or skips a check.
 
-### 8.4 Misuse cases and abuse
+### 7.4 Misuse cases and abuse
 
 - BIZ-18 Every feature MUST list its misuse cases (called twice, out of
   order, concurrently, with negative or huge values, by the wrong role, on
@@ -688,7 +688,7 @@ UPDATE invoices
   coupons, invitations, voting) MUST have per-account limits and
   plausibility checks against bulk abuse and scalping bots.
 
-### 8.5 Imports, exports and bulk operations
+### 7.5 Imports, exports and bulk operations
 
 - BIZ-21 Imports MUST validate every row with the same domain validation
   as the API, enforce file-size, row-count and field-length limits, run
@@ -699,7 +699,7 @@ UPDATE invoices
   attachments.
 
 
-## 9. AI-generated code (AI)
+## 8. AI-generated code (AI)
 
 - AI-01 Dependency gate. Every new dependency (including vendor SDKs and
   new transitive packages) MUST:
@@ -712,25 +712,25 @@ UPDATE invoices
   Never install a package only because an AI tool suggested it. AI tools
   invent plausible package names, and attackers register them
   ("slopsquatting").
-- AI-04 Changes to authentication, authorization, data access,
+- AI-02 Changes to authentication, authorization, data access,
   cryptography, payments, migrations or CI configuration MUST say so in
   the commit message, so that a human reviews them closely.
-- AI-05 Generated code MUST reuse the building blocks in section 0.4.
+- AI-03 Generated code MUST reuse the building blocks in section 0.4.
   Duplicating a permission check, a data-access path or an HTTP client is
   a defect.
-- AI-06 Before committing, check generated code for: string-built SQL or
+- AI-04 Before committing, check generated code for: string-built SQL or
   commands; missing authorization; disabled TLS verification; wildcard
   CORS with credentials; weak cryptography (MD5, SHA-1, ECB, static IVs);
   JWT `alg: none`; swallowed exceptions and fail-open defaults; deprecated
   APIs; configuration keys, library functions or vendor endpoints that do
   not exist; tests that only restate the implementation.
-- AI-07 Tests MUST be derived from the specification, not from the
+- AI-05 Tests MUST be derived from the specification, not from the
   implementation. Core domain logic SHOULD also have property-based tests.
-- AI-13 If the product calls an LLM at runtime, the OWASP Top 10 for LLM
+- AI-06 If the product calls an LLM at runtime, the OWASP Top 10 for LLM
   Applications applies as well. Model output is untrusted input: validate
   and encode it, never execute it.
 
-## 10. Injection and output encoding (INJ)
+## 9. Injection and output encoding (INJ)
 
 - INJ-01 MUST use parameterized queries or safe ORM APIs for every query.
   MUST NOT concatenate or interpolate untrusted data into SQL, HQL/JPQL,
@@ -764,9 +764,9 @@ UPDATE invoices
   `=`, `+`, `-`, `@`, tab or carriage return (formula injection).
 
 
-## 11. Browser security, CSRF and front-end code (WEB)
+## 10. Browser security, CSRF and front-end code (WEB)
 
-### 11.1 Headers and cookies
+### 10.1 Headers and cookies
 
 - WEB-01 MUST send a Content-Security-Policy with nonce- or hash-based
   scripts and `'strict-dynamic'`, no `'unsafe-inline'` or `'unsafe-eval'`
@@ -788,7 +788,7 @@ UPDATE invoices
   caching, and MUST NOT be cacheable by shared caches. Caching rules MUST
   NOT key on path patterns alone (web cache deception).
 
-### 11.2 Cross-site request forgery (CSRF)
+### 10.2 Cross-site request forgery (CSRF)
 
 - WEB-07 Every cookie-authenticated, state-changing request MUST be
   protected by a session-bound synchronizer token, or by a strict `Origin`
@@ -807,7 +807,7 @@ UPDATE invoices
 - WEB-12 CORS MUST NOT be treated as a CSRF defense; it governs reading
   responses, not sending requests.
 
-### 11.3 Front-end code
+### 10.3 Front-end code
 
 - WEB-13 MUST NOT pass untrusted data to DOM sinks: `innerHTML`,
   `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`,
@@ -839,7 +839,7 @@ UPDATE invoices
   logout and on account switch.
 
 
-## 12. API design (API)
+## 11. API design (API)
 
 - API-01 Every request MUST be validated against a schema (OpenAPI, JSON
   Schema or typed DTOs). Unknown fields MUST be rejected.
@@ -864,7 +864,7 @@ UPDATE invoices
   ("shadow") endpoints MUST NOT exist.
 
 
-## 13. Files and uploads (FILE)
+## 12. Files and uploads (FILE)
 
 - FILE-01 Uploads MUST have size limits, per file and as a per-user quota.
 - FILE-02 The file type MUST be detected from content (magic bytes) and
@@ -890,7 +890,7 @@ UPDATE invoices
   authorization (AUTHZ-13).
 
 
-## 14. Cryptography (CRY)
+## 13. Cryptography (CRY)
 
 - CRY-01 All traffic, internal included, MUST use TLS 1.2 or higher.
   Outbound clients MUST verify certificates and hostnames; production
@@ -920,9 +920,9 @@ UPDATE invoices
   before parsing or acting on the payload.
 
 
-## 15. Parsers, serialization and HTTP-level traps (PARSE, HTTP)
+## 14. Parsers, serialization and HTTP-level traps (PARSE, HTTP)
 
-### 15.1 Parsers and serialization
+### 14.1 Parsers and serialization
 
 - PARSE-01 XML parsers MUST disable DTDs, external entities and entity
   expansion (XXE, billion laughs). This includes SVG, DOCX, XLSX, SAML and
@@ -941,7 +941,7 @@ UPDATE invoices
 - PARSE-06 Numeric parsing MUST reject values outside expected ranges,
   including huge literals, `NaN` and `Infinity`.
 
-### 15.2 HTTP-level traps and exposed internals
+### 14.2 HTTP-level traps and exposed internals
 
 - HTTP-01 The app MUST accept only an allow-list of `Host` values and MUST
   NOT build absolute URLs from `Host` or `X-Forwarded-Host`.
@@ -960,12 +960,12 @@ UPDATE invoices
   responses (cache poisoning).
 
 
-## 16. Denial of service at the application level (DOS)
+## 15. Denial of service at the application level (DOS)
 
 Volumetric DDoS is absorbed in front of the app and is out of scope. The
 code decides whether one cheap request can trigger expensive work.
 
-### 16.1 Bound every request
+### 15.1 Bound every request
 
 - DOS-01 MUST set limits in the framework, before parsing: body size,
   header size, JSON depth, array length, number of multipart parts, upload
@@ -979,7 +979,7 @@ code decides whether one cheap request can trigger expensive work.
   No leading-wildcard `LIKE` on large tables. Sort fields come from an
   allow-list (INJ-02).
 
-### 16.2 Expensive operations and fairness
+### 15.2 Expensive operations and fairness
 
 - DOS-05 Rate limits MUST be layered (trusted client IP, user, account,
   endpoint class), kept in a shared store, answered with `429` plus
@@ -994,14 +994,14 @@ code decides whether one cheap request can trigger expensive work.
 - DOS-08 Per-user (or per-account) quotas MUST cover CPU-heavy jobs,
   storage, messages and API calls, so one user cannot starve the others.
 
-### 16.3 Parser and content bombs
+### 15.3 Parser and content bombs
 
 - DOS-09 Decompression MUST cap output size and compression ratio
   (archives and compressed request bodies). Image decoding MUST check
   pixel dimensions before decoding (pixel floods). See also PARSE-01,
   PARSE-04, PARSE-06 and FILE-09.
 
-### 16.4 Queues, retries and caches
+### 15.4 Queues, retries and caches
 
 - DOS-10 Queues MUST be bounded, with backpressure. Jobs MUST have
   timeouts and a maximum attempt count; failures go to a dead-letter
@@ -1016,40 +1016,40 @@ code decides whether one cheap request can trigger expensive work.
 - DOS-14 Repeated identical errors SHOULD be aggregated rather than logged
   one by one; log volume per request SHOULD be bounded.
 
-### 16.5 Long-lived connections
+### 15.5 Long-lived connections
 
 - DOS-15 WebSocket and server-sent-event connections MUST have per-user
   connection limits, message size and rate limits, heartbeats, idle
   timeouts, and re-authentication when the token expires.
 
-### 16.6 Scaling and health checks
+### 15.6 Scaling and health checks
 
 - DOS-16 Application servers MUST be stateless (sessions in a shared
   store), so they scale horizontally.
-- DOS-19 Liveness checks MUST NOT touch external dependencies. Readiness
+- DOS-17 Liveness checks MUST NOT touch external dependencies. Readiness
   checks MUST use short timeouts.
-- DOS-20 Account lockout MUST NOT be usable for denial of service
+- DOS-18 Account lockout MUST NOT be usable for denial of service
   (AUTHN-07).
 
-## 17. Secrets, configuration, build and CI (SEC, CFG, CI)
+## 16. Secrets, configuration, build and CI (SEC, CFG, CI)
 
-### 17.1 Secrets
+### 16.1 Secrets
 
 - SEC-01 Secrets MUST be loaded at runtime from a secret manager, or
   injected by the platform. They MUST NOT appear in the repo, container
   images, client bundles, logs, error messages, test fixtures, CI output
   or build arguments.
-- SEC-03 CI MUST authenticate to cloud services through OIDC federation,
+- SEC-02 CI MUST authenticate to cloud services through OIDC federation,
   and the app SHOULD use workload identity. No static cloud keys.
-- SEC-04 The app MUST support key rotation without downtime: accept the
+- SEC-03 The app MUST support key rotation without downtime: accept the
   current and the previous signing or decryption key during a rotation
   window, and reload secrets without a restart.
-- SEC-05 Each environment MUST have its own secrets. Nothing is shared
+- SEC-04 Each environment MUST have its own secrets. Nothing is shared
   between staging and production.
-- SEC-06 Anything sent to the browser is public. Only publishable keys may
+- SEC-05 Anything sent to the browser is public. Only publishable keys may
   ship to clients.
 
-### 17.2 Configuration and container image
+### 16.2 Configuration and container image
 
 - CFG-01 Configuration MUST be typed and validated at startup. Defaults
   MUST be the secure option, so a missing setting is the safe one.
@@ -1065,35 +1065,35 @@ code decides whether one cheap request can trigger expensive work.
   stage; a non-root user; compatibility with a read-only root filesystem;
   no secrets in layers or build arguments; a `.dockerignore` that excludes
   `.git`, `.env` and local artifacts.
-- CFG-07 Local development MUST use fake vendors and synthetic data.
+- CFG-05 Local development MUST use fake vendors and synthetic data.
   Production data and credentials MUST NOT be used on developer machines.
-- CFG-08 Development, test and production MUST share one configuration
+- CFG-06 Development, test and production MUST share one configuration
   schema, with different values and credentials.
 
-### 17.3 CI and build files
+### 16.3 CI and build files
 
-- CI-03 Third-party CI actions and plugins MUST be pinned to a commit SHA.
+- CI-01 Third-party CI actions and plugins MUST be pinned to a commit SHA.
   Pipeline tokens MUST default to read-only. Jobs that run untrusted (fork)
   code MUST NOT have access to secrets.
-- CI-04 Pipelines SHOULD build once and promote the same artifact through
+- CI-02 Pipelines SHOULD build once and promote the same artifact through
   every environment, sign it, and produce an SBOM.
-- CI-05 Lockfiles MUST be committed and used (`npm ci`,
+- CI-03 Lockfiles MUST be committed and used (`npm ci`,
   `pip install --require-hashes`, or the ecosystem equivalent). Installs
   MUST use the project's registry proxy, if there is one. Install scripts
   SHOULD be disabled (`npm ci --ignore-scripts`) unless needed and
   justified.
-- CI-06 Internal packages MUST use a reserved scope or namespace, and the
+- CI-04 Internal packages MUST use a reserved scope or namespace, and the
   proxy MUST NOT fall back to public registries for it (dependency
   confusion).
-- CI-07 The pipeline MUST scan dependencies for known vulnerabilities.
+- CI-05 The pipeline MUST scan dependencies for known vulnerabilities.
   Dependencies that are no longer used MUST be removed.
-- CI-08 Database migrations MUST be deployable separately from the code
+- CI-06 Database migrations MUST be deployable separately from the code
   that depends on them, so each can be rolled back.
 
 
-## 18. Logging, audit trail and kill switches (LOG)
+## 17. Logging, audit trail and kill switches (LOG)
 
-### 18.1 Logs
+### 17.1 Logs
 
 - LOG-01 Logs MUST be structured and MUST include the actor ID, request ID
   and trace ID. Tracing SHOULD span services, queues and vendor calls.
@@ -1108,7 +1108,7 @@ code decides whether one cheap request can trigger expensive work.
 - LOG-05 Security-relevant logging MUST NOT depend on debug flags.
   Timestamps MUST be UTC with an explicit offset.
 
-### 18.2 Audit trail
+### 17.2 Audit trail
 
 - LOG-06 The audit trail MUST be separate from debug logs, append-only and
   tamper-evident (write-once storage or a hash chain).
@@ -1117,12 +1117,12 @@ code decides whether one cheap request can trigger expensive work.
   and permission changes; access denials on sensitive resources; exports;
   impersonation; configuration changes; API key lifecycle; money
   movements.
-- LOG-09 The audit trail MUST make it possible to tell which users and
+- LOG-08 The audit trail MUST make it possible to tell which users and
   which data an actor touched in a given time window.
 
-### 18.3 Security events
+### 17.3 Security events
 
-- LOG-10 The app MUST emit named `SecurityEvent`s, so operations can alert
+- LOG-09 The app MUST emit named `SecurityEvent`s, so operations can alert
   without reading code, for at least: failed logins; OTP sends and
   failures; password resets; spikes of object-ID 404s per actor
   (enumeration); SMS verify rate per country; SMS budget exhausted;
@@ -1131,35 +1131,35 @@ code decides whether one cheap request can trigger expensive work.
   rejections; error rate; queue depth; dead-letter growth; vendor latency
   beyond its timeout budget.
 
-### 18.4 Kill switches
+### 17.4 Kill switches
 
-- LOG-12 Kill switches MUST exist and be covered by tests: revoke sessions
+- LOG-10 Kill switches MUST exist and be covered by tests: revoke sessions
   per user and globally; invalidate all API keys of a user; disable an
   integration or feature flag; put an account into read-only mode.
-- LOG-13 Secrets MUST be hot-reloadable (SEC-04), so a leaked key can be
+- LOG-11 Secrets MUST be hot-reloadable (SEC-03), so a leaked key can be
   rotated without a deploy.
 
 
-## 19. Personal data (PRIV)
+## 18. Personal data (PRIV)
 
-- PRIV-02 Schema columns MUST be classified (`personal`, `sensitive`,
+- PRIV-01 Schema columns MUST be classified (`personal`, `sensitive`,
   `secret`). The classification drives log redaction, export, deletion
   and encryption.
-- PRIV-03 Features MUST collect only the data they need.
-- PRIV-06 Retention and deletion MUST be implemented as jobs that also
+- PRIV-02 Features MUST collect only the data they need.
+- PRIV-03 Retention and deletion MUST be implemented as jobs that also
   cover caches, search indices, file storage, vendors and analytics.
-- PRIV-07 Account deletion MUST remove or anonymize the user's personal
-  data in every store (PRIV-06), or crypto-shred it (CRY-04).
-- PRIV-08 Users MUST be able to export and erase their own data
+- PRIV-04 Account deletion MUST remove or anonymize the user's personal
+  data in every store (PRIV-03), or crypto-shred it (CRY-04).
+- PRIV-05 Users MUST be able to export and erase their own data
   (data-subject requests).
-- PRIV-10 Non-production environments MUST use synthetic or anonymized
+- PRIV-06 Non-production environments MUST use synthetic or anonymized
   data.
-- PRIV-11 Personal data MUST NOT be sent to third-party analytics.
+- PRIV-07 Personal data MUST NOT be sent to third-party analytics.
   Non-essential trackers MUST NOT load before consent where consent is
   required.
 
 
-## 20. Design review and testing (TEST)
+## 19. Design review and testing (TEST)
 
 - TEST-01 Threat model per feature. For every feature touching identity,
   money, permissions, personal data, files or third parties, answer in the
@@ -1190,7 +1190,7 @@ code decides whether one cheap request can trigger expensive work.
     vendor timeout, malformed response;
   - sign-up abuse: repeated sign-ups for one address, after the pending
     sign-up expires and with `+tag` or dot variants, send no more messages
-    than MSG-18 allows, and a suppressed address gets none;
+    than MSG-16 allows, and a suppressed address gets none;
   - security regressions: CSRF token and `Origin` checks, SSRF block
     list, headers, cookie flags, upload type checks, fail-to-start
     configuration, kill switches, rate limits and quotas;
@@ -1200,7 +1200,7 @@ code decides whether one cheap request can trigger expensive work.
   without a replacement and a reason in the commit message.
 
 
-## 21. OWASP Top 10:2025 coverage
+## 20. OWASP Top 10:2025 coverage
 
 | Category | Covered by |
 | --- | --- |
@@ -1211,12 +1211,12 @@ code decides whether one cheap request can trigger expensive work.
 | A05 Injection (includes XSS) | INJ, WEB-13..16, PARSE |
 | A06 Insecure Design | PRIN, BIZ, TEST-01, DOS |
 | A07 Authentication Failures | AUTHN |
-| A08 Software or Data Integrity Failures | CI-04, CI-05, PARSE-03, EXT-12..16 |
+| A08 Software or Data Integrity Failures | CI-02, CI-03, PARSE-03, EXT-12..16 |
 | A09 Security Logging and Alerting Failures | LOG |
 | A10 Mishandling of Exceptional Conditions | BIZ-13..17, DOS-10..14 |
 
 
-## 22. Before committing
+## 21. Before committing
 
 - [ ] Threat-model questions answered where required (TEST-01)
 - [ ] Every new route, resolver, RPC method, job and socket handler has a
@@ -1243,15 +1243,15 @@ code decides whether one cheap request can trigger expensive work.
 - [ ] No secrets, tokens, OTPs or personal data in code, logs, errors or
       fixtures (SEC-01, LOG-03)
 - [ ] Security-relevant actions write audit records and emit security
-      events (LOG-07, LOG-10)
+      events (LOG-07, LOG-09)
 - [ ] New dependency justified and verified; lockfile updated (AI-01,
-      CI-05)
+      CI-03)
 - [ ] Tests written from the specification, including misuse cases; bug
-      fixes start with a failing test (AI-07, BIZ-18, TEST-02)
+      fixes start with a failing test (AI-05, BIZ-18, TEST-02)
 - [ ] Migrations backward compatible (DATA-14)
 
 
-## 23. References
+## 22. References
 
 - OWASP Top 10:2025: https://top10.owasp.org/2025/
 - NIST SP 800-63B-4 (Digital Identity Guidelines, Authentication):
