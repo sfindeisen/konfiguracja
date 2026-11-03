@@ -553,10 +553,15 @@ that decision.
   version, feature flags. Build keys from a structured, escaped encoding
   or a hash of a canonical serialization, never by joining user strings
   with a separator (key collisions).
-- STATE-23 Values read from a cache are untrusted. Store them as data
-  (JSON or another plain format), never as native serialized objects
-  (`pickle`, Java serialization): whoever can write to the cache could
-  otherwise run code (PARSE-03).
+- STATE-23 A cache outside the application's own process and database
+  (Redis, Memcached, a shared directory) MUST hold values as data (JSON or
+  another plain format), never as native serialized objects (`pickle`,
+  Java serialization): more than the application can reach it (SSRF,
+  other hosts, leaked credentials), and whoever can write to it could
+  otherwise run code (PARSE-03). A cache in the application's own
+  database, under its own credentials, SHOULD do the same: with native
+  objects, any way to write to the database, such as an SQL injection,
+  becomes code execution on the application's hosts.
 - STATE-24 MUST NOT cache secrets, tokens, one-time codes or password
   hashes. Personal data MAY be cached with a short TTL, in a cache that
   requires authentication and TLS.
