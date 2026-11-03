@@ -225,6 +225,7 @@ Django application, for example:
 | Policy module (AUTHZ-02, AUTHZ-03) | `user.has_perm(perm, obj)` and `PermissionRequiredMixin`, with the object-level rules in one authentication backend (for example django-rules) |
 | Configuration loader (CFG-01, CFG-02) | the settings module, checked with `manage.py check --deploy` in CI |
 | Clock (BIZ-04) | `django.utils.timezone.now()`, frozen in tests |
+| Back office (AUTHN-35) | `django.contrib.admin`, for `is_staff` accounts with explicit model permissions; its `LogEntry` alone does not meet LOG-07 |
 | Parameterized queries (INJ-01) | the ORM, and `params` for `raw()` and `cursor.execute()` |
 | Output encoding (INJ-16) | template auto-escaping, without `mark_safe` or the `safe` filter on user data |
 | CSRF (WEB-07) | `CsrfViewMiddleware`, without `csrf_exempt` on cookie-authenticated views |
@@ -402,8 +403,10 @@ that decision.
 
 ### 2.4 Platform staff [if STAFF_ADMIN]
 
-- ISO-26 Platform-staff access to user data MUST go through a separate,
-  audited code path with explicit break-glass approval.
+- ISO-26 Platform-staff access to user data MUST be granted by explicit
+  permissions and audited (AUTHZ-19, LOG-07). Access outside the staff
+  role's routine work, such as support looking into one user's account,
+  SHOULD need explicit break-glass approval.
 
 
 ## 3. Data access and multiple databases (DATA)
@@ -762,10 +765,11 @@ that decision.
 - AUTHN-34 [if SERVICES] Service-to-service calls MUST be authenticated
   (mTLS or signed short-lived tokens) and authorized. Network location is
   never proof of identity.
-- AUTHN-35 [if STAFF_ADMIN] The platform back office MUST be a separate
-  application or route group with its own authentication, phishing-resistant
-  MFA and audit trail, and MUST NOT be reachable with a regular user
-  session.
+- AUTHN-35 [if STAFF_ADMIN] The back office MUST be reachable only by staff
+  accounts, MUST authorize every view and action by permission (AUTHZ-05),
+  and MUST audit staff changes (LOG-07). It SHOULD be a separate
+  application or route group with its own sign-in and phishing-resistant
+  MFA, not reachable with a regular user session.
 - AUTHN-36 [if IMPERSONATION] Support impersonation ("log in as") MUST be
   explicit, time-boxed, audited and visibly bannered, and MUST NOT allow
   changing credentials, MFA or payout details.
@@ -785,8 +789,12 @@ that decision.
 - AUTHZ-03 There MUST be exactly one policy module. A policy engine (OPA,
   Cedar, OpenFGA) MAY replace plain functions only when relationship rules
   require it.
-- AUTHZ-04 Platform-staff roles MUST be separate from regular user roles.
-  No superadmin flag in the users table.
+- AUTHZ-04 Platform-staff roles MUST be separate from regular user roles
+  and MUST NOT be grantable through any user-facing path (AUTHZ-08,
+  AUTHZ-23). A flag that grants every permission (a superadmin column,
+  Django's `is_superuser`) SHOULD NOT be used; where the framework has
+  one, as few accounts as possible hold it, and staff work through
+  explicit permissions (AUTHZ-19).
 - AUTHZ-05 Every route, GraphQL field or resolver, RPC method, WebSocket
   message type and job handler MUST declare a policy; anything undeclared
   MUST be denied. An architecture test MUST enumerate handlers and fail CI
@@ -841,8 +849,8 @@ that decision.
   private content (messages, documents) needs a permission of its own and
   is audited (LOG-07).
 - AUTHZ-20 Roles that can change roles, credentials, money or other users'
-  data MUST require MFA, phishing-resistant where available, and step-up
-  for each sensitive action (AUTHN-22).
+  data SHOULD require MFA, phishing-resistant where available, and MUST
+  require step-up for each sensitive action (AUTHN-22).
 - AUTHZ-21 Temporary elevation (support, incident work) SHOULD be a grant
   with an expiry that is revoked automatically, not a permanent role
   change.
