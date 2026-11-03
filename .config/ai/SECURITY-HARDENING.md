@@ -1552,11 +1552,11 @@ code decides whether one cheap request can trigger expensive work.
 - DOS-06 Expensive operations (password hashing, search, reports, exports,
   imports, PDF and image processing, message sends, vendor calls) MUST
   require authentication where possible, MUST have their own stricter
-  limits, MUST run asynchronously through a queue when long, and MUST have
-  per-user concurrency limits.
+  limits, and MUST have per-user concurrency limits. Long ones SHOULD run
+  asynchronously through a queue.
 - DOS-07 Cheap checks run first: validate, authenticate and rate-limit
   before hashing, querying or calling vendors.
-- DOS-08 Per-user (or per-account) quotas MUST cover CPU-heavy jobs,
+- DOS-08 Per-user (or per-account) quotas SHOULD cover CPU-heavy jobs,
   storage, messages and API calls, so one user cannot starve the others.
 
 ### 17.3 Parser and content bombs
@@ -1815,7 +1815,7 @@ Skip the items whose rules do not apply under the project's conditions
 - [ ] New state-changing endpoints CSRF-protected; no GET side effects
       (WEB-07, WEB-08)
 - [ ] New endpoints have size, rate, page-size and time limits; expensive
-      work async with per-user quotas (DOS-01..08)
+      work has its own stricter limits (DOS-01..08)
 - [ ] User-controlled URLs go through `EgressClient`; egress list updated
       (EXT-17, EXT-25)
 - [ ] Every interpreter (database, shell, template engine, document
