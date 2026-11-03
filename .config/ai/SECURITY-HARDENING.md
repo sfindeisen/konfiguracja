@@ -1628,10 +1628,12 @@ code decides whether one cheap request can trigger expensive work.
   by a command run on the server (such as `manage.py createsuperuser`),
   or with a one-time setup token.
 - CFG-04 [if CONTAINERS] Container images MUST use a minimal base image
-  pinned by digest; a multi-stage build without compilers or package
-  managers in the runtime stage; a non-root user; compatibility with a
-  read-only root filesystem; no secrets in layers or build arguments; a
-  `.dockerignore` that excludes `.git`, `.env` and local artifacts.
+  with an explicit version tag (never `latest`); a multi-stage build
+  without compilers or package managers in the runtime stage; a non-root
+  user; compatibility with a read-only root filesystem; no secrets in
+  layers or build arguments; a `.dockerignore` that excludes `.git`,
+  `.env` and local artifacts. The base image SHOULD be pinned by digest,
+  with automated updates.
 - CFG-05 Local development MUST use fake vendors and synthetic data.
   Production data and credentials MUST NOT be used on developer machines.
 - CFG-06 Development, test and production MUST share one configuration
