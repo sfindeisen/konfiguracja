@@ -361,9 +361,10 @@ that decision.
   pub/sub) MUST authorize every subscription on the server and filter every
   message per recipient. An unguessable channel name is not access control.
 - ISO-17 [if UPLOADS] User files MUST be stored privately (no public buckets
-  or directories) and served only through short-lived signed URLs bound to
-  one object (FILE-10). Temporary files MUST get random names in a private
-  directory, be readable only by the process, and be deleted after use.
+  or directories) and served only through authorized downloads (FILE-10).
+  Files explicitly marked public (ISO-07) MAY be served directly. Temporary
+  files MUST get random names in a private directory, be readable only by
+  the process, and be deleted after use.
 - ISO-18 Exports, reports and generated documents MUST be produced with
   the requesting user's permissions at generation time, and MUST be
   downloadable only by that user.
@@ -1423,24 +1424,35 @@ much as for request input.
 - FILE-02 The file type MUST be detected from content (magic bytes) and
   checked against an allow-list. Extensions and `Content-Type` headers are
   not trusted.
-- FILE-03 Files MUST be stored in object storage under random keys, never
-  on paths built from user input and never inside a web root.
-- FILE-04 User files MUST be served from a separate registrable domain
-  (for example `example-usercontent.com`, never a subdomain of the app's
-  domain), with `Content-Disposition: attachment` for everything except
-  allow-listed image types, and with `X-Content-Type-Options: nosniff`.
+- FILE-03 Files SHOULD be stored in object storage. Wherever they are
+  stored, their names or keys MUST be generated (random, or derived from
+  IDs), never built from user input, and private files MUST NOT be in a
+  directory that the web server serves (ISO-17).
+- FILE-04 User files MUST be served with `Content-Disposition: attachment`,
+  except allow-listed image types, and with
+  `X-Content-Type-Options: nosniff`. They SHOULD be served from a separate
+  registrable domain (for example `example-usercontent.com`, never a
+  subdomain of the app's domain), so that a file a browser renders anyway
+  cannot run script on the app's origin.
 - FILE-05 SVG MUST be served as an attachment, or rasterized or sanitized
   first. Uploaded HTML MUST never be served inline.
 - FILE-06 Image metadata (EXIF, GPS) MUST be stripped.
 - FILE-07 Uploads SHOULD be malware-scanned before other users can access
   them.
 - FILE-08 [if UPLOADS or DOCGEN] Image, PDF and office-document processing
-  MUST run in an isolated worker with CPU, memory and time limits.
+  MUST have time and memory limits (DOS-09), and MUST run with the
+  libraries' code-execution and URL-fetching features disabled (for
+  example ImageMagick's URL, MVG and MSL coders, macros in office
+  documents). It SHOULD run in an isolated worker: a separate process or
+  container with its own CPU, memory and time limits, and without network
+  access or credentials.
 - FILE-09 Archive extraction MUST reject absolute paths, `..` segments and
   symlinks (zip slip), and MUST enforce limits on entry count, total size
   and compression ratio.
-- FILE-10 Download URLs MUST be short-lived signed URLs, issued after
-  authorization (AUTHZ-13).
+- FILE-10 Every download of a private file MUST be authorized
+  (AUTHZ-13): through a view that checks authorization and then streams
+  the file or hands it to the web server (`X-Accel-Redirect`), or through
+  a short-lived signed URL issued after the check.
 
 
 ## 15. Cryptography (CRY)
