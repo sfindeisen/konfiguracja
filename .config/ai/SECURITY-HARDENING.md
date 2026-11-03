@@ -62,11 +62,12 @@ inclusive.
 ### 0.4 Security building blocks
 
 Each risky operation goes through one module, so that it is implemented
-and reviewed once. These modules are ordinary code in this repository,
-written by us; each runs inside the application or worker process that
-uses it, and none of them is a separate service. If the project already
-has one under another name, use that. If one is missing, add it in its
-own commit before the change that needs it.
+and reviewed once. These modules are ordinary code, in this repository
+or in the framework; each runs inside the application or worker process
+that uses it, and none of them is a separate service. If the project or
+its framework already has one under another name (section 0.6), use
+that. If one is missing, add it in its own commit before the change that
+needs it.
 
 #### Request context: `RequestContext`
 
@@ -83,14 +84,18 @@ own commit before the change that needs it.
 
 - What: the repository or DAO modules, one set per database. They are the
   only code that imports the database driver or ORM session, opens
-  connections and runs queries.
+  connections and runs queries. With an active-record ORM such as
+  Django's, the models with their managers and querysets are this layer:
+  other code imports models and chains querysets, but writes no SQL.
 - Does: parameterized queries (INJ-01); ownership and permission filters
   taken from the request context (ISO-08); statement timeouts (DOS-02);
   maximum page sizes (DOS-03).
 - Used by: service and domain code. Request handlers do not query
-  databases directly.
+  databases directly; with an active-record ORM, they call the models'
+  managers and querysets.
 - Enforced by: an architecture or import-lint test that fails when any
-  other module imports the driver or ORM (DATA-01).
+  other module imports the driver or ORM session, or, with an
+  active-record ORM, runs raw SQL (DATA-01).
 
 #### Policy module: `authorize(actor, action, resource)`
 
@@ -156,8 +161,10 @@ own commit before the change that needs it.
 
 #### Clock: `Clock`
 
-- What: an injectable time source (`now()`), so that tests control time
-  (BIZ-04). Domain code never reads the system clock directly.
+- What: one time source (`now()`) that tests can control (BIZ-04): an
+  injectable clock, or one function that tests freeze, such as Django's
+  `timezone.now()` with time-machine or freezegun. Domain code reads the
+  time only from it.
 
 ### 0.5 Applicability
 
@@ -214,8 +221,10 @@ Django application, for example:
 | Rule | Django control |
 | --- | --- |
 | Request context (0.4) | `request.user` and the session |
-| Data-access layer (DATA-01) | model managers and querysets, with any raw SQL kept inside them |
+| Data-access layer (DATA-01) | model managers and querysets; `raw()`, `extra()`, `RawSQL` and `connection.cursor()` only inside them |
+| Policy module (AUTHZ-02, AUTHZ-03) | `user.has_perm(perm, obj)` and `PermissionRequiredMixin`, with the object-level rules in one authentication backend (for example django-rules) |
 | Configuration loader (CFG-01, CFG-02) | the settings module, checked with `manage.py check --deploy` in CI |
+| Clock (BIZ-04) | `django.utils.timezone.now()`, frozen in tests |
 | Parameterized queries (INJ-01) | the ORM, and `params` for `raw()` and `cursor.execute()` |
 | Output encoding (INJ-16) | template auto-escaping, without `mark_safe` or the `safe` filter on user data |
 | CSRF (WEB-07) | `CsrfViewMiddleware`, without `csrf_exempt` on cookie-authenticated views |
@@ -402,8 +411,9 @@ that decision.
 
 - DATA-01 Each database MUST have exactly one data-access layer
   (`DataAccess`). Feature code MUST NOT open connections, use the database
-  driver or ORM session, or build queries outside it. An architecture test
-  MUST enforce this.
+  driver or ORM session, or write SQL outside it; with an active-record
+  ORM, feature code uses the models' managers and querysets. An
+  architecture test MUST enforce this.
 - DATA-02 Each database MUST be accessed with its own least-privilege
   credentials. The application user MUST NOT run DDL; migrations MUST use
   a separate user; read-only workloads SHOULD use a read-only user. A
@@ -1064,7 +1074,7 @@ used to deliver spam.
   mode and the points where rounding happens MUST be defined.
 - BIZ-04 Instants MUST be stored in UTC (`timestamptz`). Business dates
   (due date, billing day) MUST be stored as dates, together with the time
-  zone they refer to. Time MUST come from the injectable `Clock`. DST
+  zone they refer to. Time MUST come from the `Clock` (0.4). DST
   transitions MUST be tested.
 - BIZ-05 Every input MUST have bounds: numeric ranges, string lengths,
   list sizes, page sizes, file sizes. MUST check overflow against column
@@ -1602,8 +1612,9 @@ code decides whether one cheap request can trigger expensive work.
   are missing; sandbox or test vendor credentials are configured; or a
   required security setting is absent.
 - CFG-03 Production builds MUST NOT contain default accounts, sample apps,
-  seed users or test routes. The first admin MUST be created with a
-  one-time setup token.
+  seed users or test routes. The first admin MUST be created out of band:
+  by a command run on the server (such as `manage.py createsuperuser`),
+  or with a one-time setup token.
 - CFG-04 [if CONTAINERS] Container images MUST use a minimal base image
   pinned by digest; a multi-stage build without compilers or package
   managers in the runtime stage; a non-root user; compatibility with a
