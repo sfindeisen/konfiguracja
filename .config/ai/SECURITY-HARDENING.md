@@ -23,7 +23,7 @@ AGENTS.md.
 | Level | Meaning |
 | --- | --- |
 | MUST | Universal security invariant. A violation blocks the merge. |
-| SHOULD | Strong default. A deviation needs a reason in the commit message: `Deviation: <rule ID>: <reason>`. |
+| SHOULD | Strong default. A deviation needs a reason: in the commit message (`Deviation: <rule ID>: <reason>`), or, for a deviation that holds for the whole project, once in the project's own record of its conditions (see below). |
 | CONDITIONAL | Mandatory only where the technology, feature or exposure named in its tag exists. There it binds as written; elsewhere it does not apply, and nothing has to be built for it. |
 
 MAY marks an option.
@@ -49,9 +49,9 @@ Conditional rules carry a tag such as `[if SMS]`:
 - A change that introduces a technology or feature (the first background
   job, the first WebSocket endpoint) implements the rules it activates in
   that same change.
-- Each project records which conditions hold for it in its own
-  repository, for example in its AGENTS.md, and updates that record when
-  a change adds or removes one.
+- Each project records which conditions hold for it, and its
+  project-wide deviations, in its own repository, for example in its
+  AGENTS.md, and updates that record when a change adds or removes one.
 
 ### 0.3 Rule IDs
 
