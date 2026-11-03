@@ -3,7 +3,9 @@
 Security rules for writing a multi-user, multi-role, multi-database web
 application with transactional email, SMS one-time codes, 2FA,
 third-party integrations and complex business logic. Most rules apply to
-any web application or service.
+any web application or service; rules for features a project does not
+have are conditional (section 0.2), so that a small project does not
+build machinery it does not need.
 
 
 ## 0. How to use this file
@@ -18,10 +20,34 @@ AGENTS.md.
 
 ### 0.2 Requirement levels
 
-- MUST / MUST NOT: mandatory. A violation blocks the merge.
-- SHOULD / SHOULD NOT: the default. Deviate only with a written reason in
-  the commit message, in the form `Deviation: <rule ID>: <reason>`.
-- MAY: optional.
+| Level | Meaning |
+| --- | --- |
+| MUST | Universal security invariant. A violation blocks the merge. |
+| SHOULD | Strong default. A deviation needs a reason in the commit message: `Deviation: <rule ID>: <reason>`. |
+| CONDITIONAL | Mandatory only where the technology, feature or exposure named in its tag exists. There it binds as written; elsewhere it does not apply, and nothing has to be built for it. |
+
+MAY marks an option.
+
+A rule is conditional when following it would mean building something
+that a project without the feature does not need: an outbox, replica
+handling, a read-only gate, SMS fraud controls. A rule that only
+constrains code written anyway (how to parse XML, how to validate a JWT)
+stays a MUST: it costs nothing where that code does not exist.
+
+Conditional rules carry a tag such as `[if SMS]`:
+
+- The tag names conditions from section 0.5. With `or`, any of them is
+  enough; with `and`, all of them must hold.
+- A tag on a section or subsection heading applies to every rule under
+  it. A rule's own tag replaces the heading's.
+- Whether a condition holds is a fact about the code, not a judgment of
+  risk. When unsure, treat it as holding.
+- A change that introduces a technology or feature (the first background
+  job, the first WebSocket endpoint) implements the rules it activates in
+  that same change.
+- Each project records which conditions hold for it in its own
+  repository, for example in its AGENTS.md, and updates that record when
+  a change adds or removes one.
 
 ### 0.3 Rule IDs
 
@@ -72,7 +98,7 @@ own commit before the change that needs it.
 - Reads: roles and ownership from the source of truth (STATE-16).
 - Never: duplicated as inline role checks elsewhere (AUTHZ-02).
 
-#### Outbound HTTP client: `EgressClient`
+#### Outbound HTTP client: `EgressClient` [if OUTBOUND_HTTP or USER_URLS]
 
 - What: a thin wrapper around the HTTP library the project already uses,
   running in the process that makes the call. It is not a proxy or a
@@ -88,7 +114,7 @@ own commit before the change that needs it.
   block list, connecting to the validated IP, re-validation of every
   redirect (EXT-18..21).
 
-#### Message sender: `MessageSender`
+#### Message sender: `MessageSender` [if EMAIL or SMS]
 
 - What: functions such as `send_email(template, to, data)` and
   `send_sms(template, to, data)` that hand a message over for sending once
@@ -128,6 +154,49 @@ own commit before the change that needs it.
 
 - What: an injectable time source (`now()`), so that tests control time
   (BIZ-04). Domain code never reads the system clock directly.
+
+### 0.5 Applicability
+
+The conditions used in tags. The Rules column is generated from the tags
+and lists sections, subsections and building blocks by number or name.
+The last column is an example of a small project: what a typical
+single-database Django application would have.
+
+| Condition | Holds when the project | Rules | Single-database Django app |
+| --- | --- | --- | --- |
+| `MULTI_PROCESS` | serves requests or runs jobs in more than one process or host; several Gunicorn or uWSGI workers count | STATE-06, STATE-26, STATE-29, DOS-16 | Yes, with more than one worker |
+| `MULTI_DB` | keeps source-of-truth data in more than one database or datastore | DATA-06, DATA-07, DATA-09, BIZ-08 | No |
+| `REPLICAS` | reads from database replicas, or connects to a primary that can fail over | STATE-17..21 | No |
+| `CACHE` | caches data from the database or from vendors beyond one request: a cache framework, Redis, Memcached, HTTP or ORM caching | 4.4, STATE-26, DOS-13 | If the cache framework holds user data |
+| `SEARCH` | uses a search engine or index separate from the database | ISO-14 | No |
+| `JOBS` | runs background jobs, queues or scheduled tasks | ISO-12, ISO-19, STATE-05, STATE-09, STATE-14, AUTHZ-26, AUTHZ-27, MSG-13, DOS-10 | With Celery, RQ or cron jobs |
+| `SERVICES` | consists of several services that call each other | AUTHN-34, AUTHZ-27, BIZ-08 | No |
+| `PUBLIC_API` | offers an API to clients other than its own web front end: mobile apps, integrations, customers | STATE-08, STATE-10..12, API-02, API-09, API-10 | If it has an API for apps or integrations |
+| `GRAPHQL` | exposes a GraphQL API | API-04 | No |
+| `REALTIME` | pushes data to clients over WebSockets, server-sent events or pub/sub | ISO-16, WEB-11, 17.5 | With Django Channels |
+| `PASSWORDS` | signs users in with passwords | 5.2, AUTHN-19 | Yes (`django.contrib.auth`) |
+| `SSO` | signs users in through an external identity provider | 5.7 | If configured |
+| `SIGNUP` | lets anyone create an account | 7.4, MSG-18, MSG-23 | If registration is open |
+| `INVITATIONS` | lets users invite other people | AUTHN-29, AUTHN-30 | If used |
+| `API_KEYS` | issues API keys or personal access tokens | AUTHN-33, LOG-12 | If used |
+| `STAFF_ADMIN` | has an admin or back-office interface for staff | 2.4, AUTHN-35 | Yes, if `django.contrib.admin` is enabled |
+| `IMPERSONATION` | lets staff act as a user | AUTHN-36 | No |
+| `SHARING` | lets users share objects with other users or through links | ISO-05 | If used |
+| `EMAIL` | sends email | `MessageSender`, 7.1, MSG-01, 7.3, MSG-18 | Usually |
+| `SMS` | sends SMS or voice messages | `MessageSender`, AUTHN-13, MSG-01, 7.2, 7.3, MSG-23 | If used |
+| `OUTBOUND_HTTP` | calls external HTTP APIs | `EgressClient`, 8.1, EXT-25, INJ-27, LOG-13 | If it integrates vendors |
+| `USER_URLS` | fetches URLs that users supply, or sends webhooks to them | `EgressClient`, 8.3 | Rarely |
+| `WEBHOOKS_IN` | receives webhooks | 8.2, LOG-13 | If it integrates vendors |
+| `PAYMENTS` | handles payments, refunds, payouts or other money movements | STATE-08, STATE-10..12, AUTHZ-11, EXT-11, BIZ-09 | If used |
+| `UPLOADS` | accepts files from users | ISO-17, section 14, FILE-08 | If a `FileField` takes uploads |
+| `DOCGEN` | generates or converts documents or images: PDF, LaTeX, office files, thumbnails | EXT-22, INJ-14, FILE-08 | If used |
+| `RICH_TEXT` | accepts HTML or Markdown from users | INJ-17, INJ-22 | If used |
+| `IMPORT_EXPORT` | imports or exports files of records, such as CSV or spreadsheets | 9.5, INJ-25 | If used |
+| `USER_CODE` | evaluates formulas, scripts or rules that users supply | INJ-15 | No |
+| `READ_ONLY_MODE` | offers a read-only mode for the application or for single accounts | 4.6 | No |
+| `LLM` | calls a large language model at runtime | AI-06 | No |
+| `CONTAINERS` | builds container images in this repository | CFG-04 | If it has a Dockerfile |
+| `CI` | keeps CI pipeline configuration in this repository | SEC-02, 18.3 | Usually |
 
 
 ## 1. Principles (PRIN)
@@ -214,9 +283,9 @@ that decision.
   owner, for example
   `FOREIGN KEY (owner_id, folder_id) REFERENCES folders (owner_id, id)`,
   so that the database rejects links across users.
-- ISO-05 Share links are grants: at least 128 random bits, stored hashed,
-  bound to one object and one permission, expiring, revocable and logged
-  on use. A share link MUST NOT grant more than its creator holds
+- ISO-05 [if SHARING] Share links are grants: at least 128 random bits,
+  stored hashed, bound to one object and one permission, expiring, revocable
+  and logged on use. A share link MUST NOT grant more than its creator holds
   (AUTHZ-10).
 - ISO-06 Revoking a grant MUST take effect on the next request, including
   for open WebSocket subscriptions, cached results and signed URLs (keep
@@ -238,34 +307,34 @@ that decision.
   cached objects and reports are filtered by the same permission rules as
   the source; cache keys for permission-dependent content MUST include the
   actor or its permission scope.
-- ISO-12 Background jobs MUST carry the actor in the payload, re-create
-  the `RequestContext` and re-check authorization when they run.
+- ISO-12 [if JOBS] Background jobs MUST carry the actor in the payload,
+  re-create the `RequestContext` and re-check authorization when they run.
 - ISO-13 Every key derived from user data MUST be namespaced by its owner:
   cache keys, object-storage paths, search documents, queue messages,
   pub/sub channel names, rate-limit buckets, lock names, temporary file
   names and idempotency keys. A namespace prevents mix-ups; it is not a
   permission, and the code reading the data still checks access.
-- ISO-14 Search engines MUST apply the actor's access filter inside the
-  query (security trimming), so that hits, counts, facets, highlights and
-  suggestions never come from data the actor may not see.
+- ISO-14 [if SEARCH] Search engines MUST apply the actor's access filter
+  inside the query (security trimming), so that hits, counts, facets,
+  highlights and suggestions never come from data the actor may not see.
 - ISO-15 Aggregates shown to users (counts, sums, rankings, "people who
   viewed this") MUST be computed only over data the actor may see;
   otherwise they reveal the existence and the values of other users'
   data.
-- ISO-16 Real-time channels (WebSocket, server-sent events, pub/sub) MUST
-  authorize every subscription on the server and filter every message per
-  recipient. An unguessable channel name is not access control.
-- ISO-17 User files MUST be stored privately (no public buckets or
-  directories) and served only through short-lived signed URLs bound to
+- ISO-16 [if REALTIME] Real-time channels (WebSocket, server-sent events,
+  pub/sub) MUST authorize every subscription on the server and filter every
+  message per recipient. An unguessable channel name is not access control.
+- ISO-17 [if UPLOADS] User files MUST be stored privately (no public buckets
+  or directories) and served only through short-lived signed URLs bound to
   one object (FILE-10). Temporary files MUST get random names in a private
   directory, be readable only by the process, and be deleted after use.
 - ISO-18 Exports, reports and generated documents MUST be produced with
   the requesting user's permissions at generation time, and MUST be
   downloadable only by that user.
-- ISO-19 Batch jobs that process many users MUST handle each user's data
-  in that user's context (or in a declared system context), and MUST NOT
-  mix several users' data into one output, message or file unless the
-  feature is explicitly about that.
+- ISO-19 [if JOBS] Batch jobs that process many users MUST handle each
+  user's data in that user's context (or in a declared system context), and
+  MUST NOT mix several users' data into one output, message or file unless
+  the feature is explicitly about that.
 - ISO-20 Error messages, validation messages and notifications MUST NOT
   disclose another user's data: names, emails, the value behind a
   unique-constraint violation, other rows in a stack trace.
@@ -294,7 +363,7 @@ that decision.
   Uninitialized allocations (for example Node.js `Buffer.allocUnsafe`)
   MUST NOT be returned to users or written to storage.
 
-### 2.4 Platform staff
+### 2.4 Platform staff [if STAFF_ADMIN]
 
 - ISO-26 Platform-staff access to user data MUST go through a separate,
   audited code path with explicit break-glass approval.
@@ -325,17 +394,19 @@ that decision.
 - DATA-05 Each kind of data MUST have exactly one source of truth. Copies
   in other stores (caches, search indices, read replicas, reporting
   databases) are derived and MUST be rebuildable from it.
-- DATA-06 MUST NOT use distributed transactions across databases. Use the
-  transactional outbox and idempotent consumers (STATE-09, BIZ-11).
-- DATA-07 References between databases cannot use foreign keys. The code
-  MUST validate them on write, and reconciliation jobs MUST detect orphans
-  and drift (BIZ-09).
+- DATA-06 [if MULTI_DB] MUST NOT use distributed transactions across
+  databases. Use the transactional outbox and idempotent consumers
+  (STATE-09, BIZ-11).
+- DATA-07 [if MULTI_DB] References between databases cannot use foreign
+  keys. The code MUST validate them on write, and reconciliation jobs MUST
+  detect orphans and drift (BIZ-09).
 - DATA-08 Migrations MUST be backward compatible (expand, migrate,
   contract), so the app runs against schema N and N-1. Each database
   tracks its own schema version; the migrator MUST be idempotent and MUST
   report drift as an error.
-- DATA-09 Identifiers that travel between databases SHOULD be globally
-  unique (UUIDs), so records from different stores cannot be confused.
+- DATA-09 [if MULTI_DB] Identifiers that travel between databases SHOULD be
+  globally unique (UUIDs), so records from different stores cannot be
+  confused.
 - DATA-10 Deleting data MUST reach every store that holds a copy
   (PRIV-03).
 
@@ -365,38 +436,41 @@ that decision.
 - STATE-04 Read-modify-write of permission, balance or status fields MUST
   use a row lock or an optimistic version check; never last-write-wins
   (lost updates).
-- STATE-05 Jobs processed by parallel workers MUST be claimed atomically
-  (`SELECT ... FOR UPDATE SKIP LOCKED`, or a lease with an expiry). A
-  worker whose lease has expired MUST NOT commit its result; check a
-  fencing token or version on commit.
-- STATE-06 Distributed locks (Redis and similar) are advisory and can
-  expire in the middle of an operation. Security-relevant correctness MUST
-  NOT depend on them alone; back them with a database constraint or a
-  fencing token.
+- STATE-05 [if JOBS] Jobs processed by parallel workers MUST be claimed
+  atomically (`SELECT ... FOR UPDATE SKIP LOCKED`, or a lease with an
+  expiry). A worker whose lease has expired MUST NOT commit its result;
+  check a fencing token or version on commit.
+- STATE-06 [if MULTI_PROCESS] Distributed locks (Redis and similar) are
+  advisory and can expire in the middle of an operation. Security-relevant
+  correctness MUST NOT depend on them alone; back them with a database
+  constraint or a fencing token.
 - STATE-07 Parallel work inside one request (threads, tasks, promises)
   MUST receive the request context explicitly (ISO-23) and MUST NOT share
   mutable state without synchronization.
 
 ### 4.2 Idempotency
 
-- STATE-08 Mutating endpoints that clients may retry MUST accept an
-  `Idempotency-Key`, store key, request hash and response, replay the
-  stored response, and reject reuse of a key with a different request.
-- STATE-09 Queue consumers MUST be idempotent; delivery is at-least-once.
-- STATE-10 Idempotency keys MUST be scoped to the actor and the operation,
-  looked up as `(actor, operation, key)`. A key sent by another user MUST
-  NOT return the first user's stored response (ISO-13).
-- STATE-11 Two concurrent requests with the same key MUST NOT both run:
-  reserve the key first under a unique constraint (status "in progress");
-  the second request waits or gets `409`.
-- STATE-12 Stored responses MUST expire (for example after 24 hours) and
-  are personal data: they get the same protection and deletion as the
-  data they contain.
+- STATE-08 [if PUBLIC_API or PAYMENTS] Mutating endpoints that clients may
+  retry MUST accept an `Idempotency-Key`, store key, request hash and
+  response, replay the stored response, and reject reuse of a key with a
+  different request.
+- STATE-09 [if JOBS] Queue consumers MUST be idempotent; delivery is
+  at-least-once.
+- STATE-10 [if PUBLIC_API or PAYMENTS] Idempotency keys MUST be scoped to
+  the actor and the operation, looked up as `(actor, operation, key)`. A key
+  sent by another user MUST NOT return the first user's stored response
+  (ISO-13).
+- STATE-11 [if PUBLIC_API or PAYMENTS] Two concurrent requests with the same
+  key MUST NOT both run: reserve the key first under a unique constraint
+  (status "in progress"); the second request waits or gets `409`.
+- STATE-12 [if PUBLIC_API or PAYMENTS] Stored responses MUST expire (for
+  example after 24 hours) and are personal data: they get the same
+  protection and deletion as the data they contain.
 - STATE-13 Effects MUST be idempotent in the data, not only in the API
   layer: unique constraints on natural keys (external payment ID, vendor
   event ID, message ID) make it impossible for a retry to create a second
   record.
-- STATE-14 A queue consumer MUST record the message ID in the same
+- STATE-14 [if JOBS] A queue consumer MUST record the message ID in the same
   transaction as the message's effect, so that a crash between effect and
   acknowledgment cannot apply it twice.
 - STATE-15 Operations that are not idempotent MUST NOT be retried
@@ -408,28 +482,30 @@ that decision.
 - STATE-16 Security decisions (session validity and revocation, roles and
   permissions, one-time-code use, balances) MUST read the source of truth,
   never a lagging replica or a long-lived cache.
-- STATE-17 Writes MUST go to the primary only. Replica connections MUST use
-  read-only database users, so that a bug cannot write to a replica or
-  make it diverge.
-- STATE-18 Read your own writes in security flows: after a password or MFA
-  change, a role or grant change, a logout, a session revocation or a
-  token consumption, every following check MUST see the change. Read from
-  the primary, or wait until the replica has replayed the change.
-- STATE-19 Security-critical writes (revocations, password and MFA
-  changes, role removals, token consumption) SHOULD be committed with
+- STATE-17 [if REPLICAS] Writes MUST go to the primary only. Replica
+  connections MUST use read-only database users, so that a bug cannot write
+  to a replica or make it diverge.
+- STATE-18 [if REPLICAS] Read your own writes in security flows: after a
+  password or MFA change, a role or grant change, a logout, a session
+  revocation or a token consumption, every following check MUST see the
+  change. Read from the primary, or wait until the replica has replayed the
+  change.
+- STATE-19 [if REPLICAS] Security-critical writes (revocations, password and
+  MFA changes, role removals, token consumption) SHOULD be committed with
   synchronous replication where the database offers it (for example
   PostgreSQL `SET LOCAL synchronous_commit = remote_apply` with a
   synchronous standby), so that a failover cannot lose them and silently
   restore revoked access.
-- STATE-20 After a failover the application MUST write only to the new
-  primary: connect with a read-write target (for example libpq
+- STATE-20 [if REPLICAS] After a failover the application MUST write only to
+  the new primary: connect with a read-write target (for example libpq
   `target_session_attrs=read-write`), and do not cache the primary's
   address beyond the driver's own reconnect logic.
-- STATE-21 Replicas and reporting copies hold the same personal data and
-  secrets as the primary. Code that reads them gets the same access
-  control, and no broader credentials, than code that reads the primary.
+- STATE-21 [if REPLICAS] Replicas and reporting copies hold the same
+  personal data and secrets as the primary. Code that reads them gets the
+  same access control, and no broader credentials, than code that reads the
+  primary.
 
-### 4.4 Caches
+### 4.4 Caches [if CACHE]
 
 - STATE-22 A cache key MUST include every input that changes the cached
   value: the actor or its permission scope (ISO-11), locale, format, API
@@ -448,11 +524,11 @@ that decision.
   deletion remove the related entries, or the TTL is short enough to be
   the accepted delay (AUTHZ-14). Cached authorization decisions and other
   cached "allowed" results are the critical case.
-- STATE-26 With several application instances, each has its own
-  in-process cache. A revocation MUST reach all of them (broadcast
-  invalidation or a short TTL); whatever must take effect immediately
-  (sessions, permissions, kill switches) MUST NOT rely on an in-process
-  cache alone.
+- STATE-26 [if CACHE and MULTI_PROCESS] With several application instances,
+  each has its own in-process cache. A revocation MUST reach all of them
+  (broadcast invalidation or a short TTL); whatever must take effect
+  immediately (sessions, permissions, kill switches) MUST NOT rely on an
+  in-process cache alone.
 - STATE-27 ORM second-level caches, query caches and HTTP response caches
   MUST be keyed by actor, or used only for data that every user may see.
 - STATE-28 Each service uses its own cache namespace and credentials. The
@@ -462,11 +538,11 @@ that decision.
 
 ### 4.5 In-memory state
 
-- STATE-29 Rate limiters, attempt counters, locks, sessions and revocation
-  lists MUST live in a store shared by all instances (the database or a
-  shared cache). Per-process memory exists once per instance and resets on
-  restart, so it enforces no limit: an attacker spreads requests over
-  instances or waits for the next deploy.
+- STATE-29 [if MULTI_PROCESS] Rate limiters, attempt counters, locks,
+  sessions and revocation lists MUST live in a store shared by all instances
+  (the database or a shared cache). Per-process memory exists once per
+  instance and resets on restart, so it enforces no limit: an attacker
+  spreads requests over instances or waits for the next deploy.
 - STATE-30 Large inputs and outputs (uploads, imports, exports, query
   results) MUST be processed as streams with bounded buffers, never loaded
   into memory whole (DOS-01).
@@ -484,7 +560,7 @@ that decision.
   endpoints without authentication (HTTP-04), and code MUST NOT write
   dumps or profiles to shared or world-readable locations.
 
-### 4.6 Read-only mode
+### 4.6 Read-only mode [if READ_ONLY_MODE]
 
 - STATE-34 Read-only mode, for the whole application (maintenance,
   incident response) or for one account (suspended or frozen), MUST be
@@ -526,7 +602,7 @@ that decision.
 - AUTHN-02 MUST NOT ship default, sample or hard-coded credentials for any
   role or environment.
 
-### 5.2 Passwords
+### 5.2 Passwords [if PASSWORDS]
 
 - AUTHN-03 MUST hash passwords with Argon2id (preferred), scrypt or bcrypt
   at a tuned cost. bcrypt ignores input beyond 72 bytes; if bcrypt is used,
@@ -565,9 +641,9 @@ that decision.
 - AUTHN-12 TOTP: secrets MUST be encrypted at rest (CRY-04); accept at
   most one time step of clock skew; MUST reject reuse of a code within its
   validity window.
-- AUTHN-13 SMS and voice codes are a fallback only. NIST SP 800-63B-4
-  classifies PSTN delivery as a restricted authenticator. The app MUST
-  offer a phishing-resistant option.
+- AUTHN-13 [if SMS] SMS and voice codes are a fallback only. NIST SP
+  800-63B-4 classifies PSTN delivery as a restricted authenticator. The app
+  MUST offer a phishing-resistant option.
 - AUTHN-14 Every one-time code (SMS, email, step-up) MUST come from a
   CSPRNG, have at least 6 digits, be stored hashed, be single use, expire
   within 10 minutes, and be compared in constant time.
@@ -584,9 +660,9 @@ that decision.
 
 ### 5.5 Recovery and sensitive changes
 
-- AUTHN-19 Password-reset tokens MUST have at least 128 bits of entropy,
-  be stored hashed, be single use, expire within 15 to 60 minutes, and be
-  invalidated by any password change.
+- AUTHN-19 [if PASSWORDS] Password-reset tokens MUST have at least 128 bits
+  of entropy, be stored hashed, be single use, expire within 15 to 60
+  minutes, and be invalidated by any password change.
 - AUTHN-20 Links sent by email or SMS MUST be built from configured base
   URLs, never from `Host` or `X-Forwarded-Host`.
 - AUTHN-21 A password reset MUST NOT bypass MFA. Resetting MFA MUST
@@ -613,7 +689,7 @@ that decision.
   possible; tokens MUST NOT be stored in `localStorage` or
   `sessionStorage`.
 
-### 5.7 SSO and federation
+### 5.7 SSO and federation [if SSO]
 
 - AUTHN-27 OIDC and OAuth: MUST use `state` and `nonce`, PKCE and
   exact-match redirect URIs, and MUST validate signature, issuer and
@@ -626,11 +702,11 @@ that decision.
 
 ### 5.8 Invitations and account lifecycle
 
-- AUTHN-29 Invitation tokens MUST be random, stored hashed, single use,
-  expiring, and bound to the invited email. The role MUST come
+- AUTHN-29 [if INVITATIONS] Invitation tokens MUST be random, stored hashed,
+  single use, expiring, and bound to the invited email. The role MUST come
   from the stored invitation, never from the accept request.
-- AUTHN-30 Accepting an invitation while signed in with a different email
-  MUST require explicit confirmation.
+- AUTHN-30 [if INVITATIONS] Accepting an invitation while signed in with a
+  different email MUST require explicit confirmation.
 - AUTHN-31 Deactivating or deleting an account MUST immediately revoke its
   sessions, API keys and scheduled jobs. Removing a role MUST take effect
   on the next request (STATE-16).
@@ -641,19 +717,20 @@ that decision.
 
 ### 5.9 API keys, machine identities and back office
 
-- AUTHN-33 API keys MUST be scoped to one account and an explicit
-  permission set, MUST expire, MUST be stored hashed and shown once, MUST
-  carry a recognizable prefix (for example `acme_live_`) so secret
-  scanners detect leaks, and MUST record last use.
-- AUTHN-34 Service-to-service calls MUST be authenticated (mTLS or signed
-  short-lived tokens) and authorized. Network location is never proof of
-  identity.
-- AUTHN-35 The platform back office MUST be a separate application or
-  route group with its own authentication, phishing-resistant MFA and
-  audit trail, and MUST NOT be reachable with a regular user session.
-- AUTHN-36 Support impersonation ("log in as") MUST be explicit,
-  time-boxed, audited and visibly bannered, and MUST NOT allow changing
-  credentials, MFA or payout details.
+- AUTHN-33 [if API_KEYS] API keys MUST be scoped to one account and an
+  explicit permission set, MUST expire, MUST be stored hashed and shown
+  once, MUST carry a recognizable prefix (for example `acme_live_`) so
+  secret scanners detect leaks, and MUST record last use.
+- AUTHN-34 [if SERVICES] Service-to-service calls MUST be authenticated
+  (mTLS or signed short-lived tokens) and authorized. Network location is
+  never proof of identity.
+- AUTHN-35 [if STAFF_ADMIN] The platform back office MUST be a separate
+  application or route group with its own authentication, phishing-resistant
+  MFA and audit trail, and MUST NOT be reachable with a regular user
+  session.
+- AUTHN-36 [if IMPERSONATION] Support impersonation ("log in as") MUST be
+  explicit, time-boxed, audited and visibly bannered, and MUST NOT allow
+  changing credentials, MFA or payout details.
 - AUTHN-37 MUST compare secrets (tokens, codes, HMACs, API keys) in
   constant time.
 
@@ -692,9 +769,9 @@ that decision.
   changes MUST require step-up (AUTHN-22), and MUST be audited and
   notified. The last admin MUST NOT be able to remove their own admin
   role.
-- AUTHZ-11 Money movements and approvals MUST enforce separation of
-  duties: the creator of a payment, refund or price change MUST NOT
-  approve it.
+- AUTHZ-11 [if PAYMENTS] Money movements and approvals MUST enforce
+  separation of duties: the creator of a payment, refund or price change
+  MUST NOT approve it.
 - AUTHZ-12 Client-side checks are UX only; the server decides.
 - AUTHZ-13 MUST also authorize in: background jobs; scheduled reports;
   exports; search and autocomplete; aggregates and dashboards; file
@@ -747,16 +824,16 @@ that decision.
   internal services, vendor callbacks, LLM tools) MUST check that user's
   permissions, not its own. A privileged system identity MUST NOT be used
   to serve a user's request.
-- AUTHZ-26 Jobs that run without a user (system jobs) MUST declare the
-  permissions they use and get nothing else. Jobs started by a user run
+- AUTHZ-26 [if JOBS] Jobs that run without a user (system jobs) MUST declare
+  the permissions they use and get nothing else. Jobs started by a user run
   with that user's permissions (ISO-12).
 
 ### 6.3 Least privilege for code and services
 
-- AUTHZ-27 Each service, worker and scheduled job MUST use its own
-  database user, granted only the tables and operations it needs:
-  `SELECT` where it only reads, no `DELETE` where it never deletes, no
-  access to other components' tables (DATA-02). The audit table is
+- AUTHZ-27 [if SERVICES or JOBS] Each service, worker and scheduled job MUST
+  use its own database user, granted only the tables and operations it
+  needs: `SELECT` where it only reads, no `DELETE` where it never deletes,
+  no access to other components' tables (DATA-02). The audit table is
   insert-only (LOG-06).
 - AUTHZ-28 Read paths SHOULD run on a read-only connection (a read-only
   database user, or `SET TRANSACTION READ ONLY`), so that an injection in
@@ -773,10 +850,10 @@ that decision.
 
 ## 7. Transactional email and SMS (MSG)
 
-### 7.1 Email
+### 7.1 Email [if EMAIL]
 
-- MSG-01 MUST send all email and SMS through `MessageSender`, after the
-  business transaction has committed (BIZ-11).
+- MSG-01 [if EMAIL or SMS] MUST send all email and SMS through
+  `MessageSender`, after the business transaction has committed (BIZ-11).
 - MSG-02 Users MUST NOT control the `From` address. Messages sent on a
   user's behalf (invitations, shares) go out from the app's domain; the
   user's name MAY appear in the display name, sanitized, and their address
@@ -796,7 +873,7 @@ that decision.
 - MSG-08 MUST process bounce and complaint webhooks and maintain a
   suppression list; MUST stop sending to hard-bounced addresses.
 
-### 7.2 SMS
+### 7.2 SMS [if SMS]
 
 - MSG-09 MUST implement SMS pumping controls in code:
   - a destination-country allow-list;
@@ -815,17 +892,17 @@ that decision.
 - MSG-12 MUST NOT treat a phone number as a permanent identity; numbers
   are recycled. Re-verify before high-risk use.
 
-### 7.3 Delivery pipeline
+### 7.3 Delivery pipeline [if EMAIL or SMS]
 
-- MSG-13 The message request MUST be written to an outbox table in the
-  same transaction as the business change. A worker sends it with an
+- MSG-13 [if JOBS] The message request MUST be written to an outbox table in
+  the same transaction as the business change. A worker sends it with an
   idempotency key per message, retries with exponential backoff and jitter
   on timeouts and 5xx responses, moves it to a dead-letter queue after N
   attempts, and records the provider message ID and delivery status.
 - MSG-14 Non-production environments MUST route email and SMS to a sink,
   with an explicit allow-list of test recipients.
 
-### 7.4 Sign-up and verification messages
+### 7.4 Sign-up and verification messages [if SIGNUP]
 
 Anyone can type someone else's email address or phone number into a
 sign-up form, and repeat it every time the pending sign-up expires. These
@@ -846,10 +923,10 @@ used to deliver spam.
   providers that ignore them (such as gmail.com); phone numbers in E.164.
   Store an HMAC of the key, not the address. Also limit verification
   messages per recipient domain.
-- MSG-18 Every verification email MUST carry a "This wasn't me" link that
-  works without signing in. It opens a page whose POST button (MSG-05)
-  cancels the pending sign-up and puts the delivery key on a sign-up
-  suppression list. The same action MAY be offered through the
+- MSG-18 [if SIGNUP and EMAIL] Every verification email MUST carry a "This
+  wasn't me" link that works without signing in. It opens a page whose POST
+  button (MSG-05) cancels the pending sign-up and puts the delivery key on a
+  sign-up suppression list. The same action MAY be offered through the
   `List-Unsubscribe` and `List-Unsubscribe-Post` headers.
 - MSG-19 For a suppressed delivery key, sign-up and resend requests MUST
   send nothing, and the response MUST look exactly as if a message had
@@ -866,18 +943,18 @@ used to deliver spam.
   verification link. At most one "someone tried to sign up with your
   address" notice per period MAY be sent instead; the response stays
   identical (AUTHN-09).
-- MSG-23 Phone numbers get the same per-destination limits and
-  suppression (MSG-16..19). An inbound `STOP` reply, where the provider
-  supports it, MUST suppress the number. An unauthenticated visitor SHOULD
-  NOT be able to trigger an SMS at all: verify the email address first, or
-  put the SMS step behind bot detection (MSG-09).
+- MSG-23 [if SIGNUP and SMS] Phone numbers get the same per-destination
+  limits and suppression (MSG-16..19). An inbound `STOP` reply, where the
+  provider supports it, MUST suppress the number. An unauthenticated visitor
+  SHOULD NOT be able to trigger an SMS at all: verify the email address
+  first, or put the SMS step behind bot detection (MSG-09).
 - MSG-24 Limit hits and attempts on suppressed keys MUST emit
   `SecurityEvent`s.
 
 
 ## 8. Third-party systems (EXT)
 
-### 8.1 Outbound calls
+### 8.1 Outbound calls [if OUTBOUND_HTTP]
 
 - EXT-01 Each vendor MUST be wrapped in exactly one adapter. Domain code
   MUST NOT use vendor SDK types.
@@ -899,11 +976,11 @@ used to deliver spam.
   and revocable.
 - EXT-10 Vendor SDKs are dependencies (AI-01). Their telemetry SHOULD be
   disabled unless needed.
-- EXT-11 Card data MUST NOT touch the application's servers. Use the
-  payment provider's hosted fields or redirect, and store only provider
-  tokens.
+- EXT-11 [if PAYMENTS] Card data MUST NOT touch the application's servers.
+  Use the payment provider's hosted fields or redirect, and store only
+  provider tokens.
 
-### 8.2 Inbound webhooks
+### 8.2 Inbound webhooks [if WEBHOOKS_IN]
 
 - EXT-12 MUST verify the signature (usually an HMAC over the raw body) in
   constant time with a per-vendor secret, before parsing the payload.
@@ -917,7 +994,7 @@ used to deliver spam.
 - EXT-16 For state that matters (payment succeeded, document signed) MUST
   re-fetch the object from the vendor's API by ID before acting.
 
-### 8.3 User-controlled URLs (SSRF)
+### 8.3 User-controlled URLs (SSRF) [if USER_URLS]
 
 - EXT-17 Every request to a user-supplied URL (webhook targets, URL
   imports, avatar fetches, link previews, renderers) MUST go through
@@ -935,16 +1012,16 @@ used to deliver spam.
   redirects.
 - EXT-21 `EgressClient` MUST enforce timeouts and a response-size limit,
   and MUST NOT forward internal credentials or cookies.
-- EXT-22 HTML-to-PDF converters, headless browsers, image fetchers and
-  link-preview generators MUST run in an isolated worker, with local file
-  access and script execution disabled where possible. Their network
-  access MUST follow EXT-18..21.
+- EXT-22 [if DOCGEN] HTML-to-PDF converters, headless browsers, image
+  fetchers and link-preview generators MUST run in an isolated worker, with
+  local file access and script execution disabled where possible. Their
+  network access MUST follow EXT-18..21.
 - EXT-23 MUST NOT return the raw response of a user-supplied URL to the
   user.
 - EXT-24 Outbound webhooks sent to user-configured endpoints MUST be
   signed, timestamped, retried with backoff, and logged per delivery.
-- EXT-25 The repo MUST contain the list of hosts the app legitimately
-  calls (egress allow-list), so operations can enforce it.
+- EXT-25 [if OUTBOUND_HTTP] The repo MUST contain the list of hosts the app
+  legitimately calls (egress allow-list), so operations can enforce it.
 
 ## 9. Business logic and data integrity (BIZ)
 
@@ -983,10 +1060,10 @@ UPDATE invoices
 -- Reload and report; do not retry blindly.
 ```
 
-- BIZ-08 Multi-step flows across services or databases MUST use sagas
-  with compensating actions.
-- BIZ-09 Data mirrored with vendors (payments, subscriptions) MUST have
-  reconciliation jobs that detect and report drift.
+- BIZ-08 [if SERVICES or MULTI_DB] Multi-step flows across services or
+  databases MUST use sagas with compensating actions.
+- BIZ-09 [if PAYMENTS] Data mirrored with vendors (payments, subscriptions)
+  MUST have reconciliation jobs that detect and report drift.
 
 ### 9.3 Errors
 
@@ -1019,7 +1096,7 @@ UPDATE invoices
   coupons, invitations, voting) MUST have per-account limits and
   plausibility checks against bulk abuse and scalping bots.
 
-### 9.5 Imports, exports and bulk operations
+### 9.5 Imports, exports and bulk operations [if IMPORT_EXPORT]
 
 - BIZ-18 Imports MUST validate every row with the same domain validation
   as the API, enforce file-size, row-count and field-length limits, run
@@ -1057,10 +1134,10 @@ UPDATE invoices
   not exist; tests that only restate the implementation.
 - AI-05 Tests MUST be derived from the specification, not from the
   implementation. Core domain logic SHOULD also have property-based tests.
-- AI-06 If the product calls an LLM at runtime, the OWASP Top 10 for LLM
-  Applications applies as well. Model output is untrusted input: validate
-  and encode it, never execute it. Text the model reads (user input,
-  documents, web pages, emails) can carry instructions (prompt
+- AI-06 [if LLM] If the product calls an LLM at runtime, the OWASP Top 10
+  for LLM Applications applies as well. Model output is untrusted input:
+  validate and encode it, never execute it. Text the model reads (user
+  input, documents, web pages, emails) can carry instructions (prompt
   injection), so tools and data given to the model MUST be limited to
   what the requesting user may do, and actions with side effects SHOULD
   need the user's confirmation.
@@ -1133,26 +1210,26 @@ much as for request input.
   `printf`-style formats, Python `str.format` (a user-controlled format
   string can read object attributes), `String.format`, logger message
   templates. Pass it as an argument.
-- INJ-14 Document generators are interpreters. LaTeX MUST run with shell
-  escape disabled (`-no-shell-escape`) and restricted file access
+- INJ-14 [if DOCGEN] Document generators are interpreters. LaTeX MUST run
+  with shell escape disabled (`-no-shell-escape`) and restricted file access
   (`openin_any = p`, `openout_any = p`), with user text escaped for LaTeX
   special characters. HTML-to-PDF converters receive escaped HTML and
   follow EXT-22.
-- INJ-15 User-supplied code (formulas, scripts, rules, plugins) MUST NOT
-  run in the application process. Use a purpose-built evaluator with a
-  fixed grammar (for example a formula parser), or a separate sandboxed
-  process with no network, no filesystem access and CPU, memory and time
-  limits. Language-level sandboxes (Node.js `vm`, restricted `eval`) are
-  not security boundaries.
+- INJ-15 [if USER_CODE] User-supplied code (formulas, scripts, rules,
+  plugins) MUST NOT run in the application process. Use a purpose-built
+  evaluator with a fixed grammar (for example a formula parser), or a
+  separate sandboxed process with no network, no filesystem access and CPU,
+  memory and time limits. Language-level sandboxes (Node.js `vm`, restricted
+  `eval`) are not security boundaries.
 
 ### 11.3 Output to browsers
 
 - INJ-16 MUST rely on the framework's context-aware auto-escaping for
   HTML. Every bypass (`dangerouslySetInnerHTML`, `v-html`, `|safe`,
   `raw()`) MUST carry a review comment and use sanitized input (INJ-17).
-- INJ-17 Rich text MUST be sanitized server-side with a maintained
-  allow-list sanitizer. Markdown MUST be rendered with raw HTML disabled,
-  then sanitized.
+- INJ-17 [if RICH_TEXT] Rich text MUST be sanitized server-side with a
+  maintained allow-list sanitizer. Markdown MUST be rendered with raw HTML
+  disabled, then sanitized.
 - INJ-18 Values placed into HTML attributes, URLs, JavaScript, CSS or
   JSON embedded in HTML MUST use the encoder for that context.
 - INJ-19 JSON embedded in HTML (`<script>` blocks, data attributes) MUST
@@ -1166,10 +1243,10 @@ much as for request input.
   front-end framework's template compiler (for example `{{ }}` in
   server-rendered HTML that the framework then compiles); render it as
   text.
-- INJ-22 Sanitize last: HTML sanitization MUST run after every other
-  transformation (Markdown rendering, truncation, link rewriting, mention
-  expansion). Changing sanitized HTML afterwards reopens injection
-  (mutation XSS).
+- INJ-22 [if RICH_TEXT] Sanitize last: HTML sanitization MUST run after
+  every other transformation (Markdown rendering, truncation, link
+  rewriting, mention expansion). Changing sanitized HTML afterwards reopens
+  injection (mutation XSS).
 
 ### 11.4 Headers, logs, exports and outbound requests
 
@@ -1177,15 +1254,16 @@ much as for request input.
   framework APIs; raw CR and LF MUST be rejected (response splitting).
 - INJ-24 Logs MUST be structured, with untrusted values encoded (log
   injection).
-- INJ-25 CSV and spreadsheet exports MUST neutralize cells that begin with
-  `=`, `+`, `-`, `@`, tab or carriage return (formula injection).
+- INJ-25 [if IMPORT_EXPORT] CSV and spreadsheet exports MUST neutralize
+  cells that begin with `=`, `+`, `-`, `@`, tab or carriage return (formula
+  injection).
 - INJ-26 Logging MUST NOT evaluate lookups or expressions inside messages
   (Log4Shell-style `${...}`). User values go in as structured fields,
   never as the message template (INJ-13).
-- INJ-27 User values in the URL path, query or headers of an outbound
-  request MUST be encoded by the URL and header builders (path segments
-  escaped, CR and LF rejected), so that they cannot change the target
-  path (`../admin`), the query or the headers of a vendor call.
+- INJ-27 [if OUTBOUND_HTTP] User values in the URL path, query or headers of
+  an outbound request MUST be encoded by the URL and header builders (path
+  segments escaped, CR and LF rejected), so that they cannot change the
+  target path (`../admin`), the query or the headers of a vendor call.
 
 ### 11.5 Canonicalization
 
@@ -1237,9 +1315,9 @@ much as for request input.
   content types) and reject form encodings.
 - WEB-10 Login forms and SSO callbacks MUST be CSRF-protected (login CSRF;
   OAuth `state`).
-- WEB-11 WebSocket upgrades MUST check `Origin` against an allow-list and
-  authenticate the connection (cross-site WebSocket hijacking). Each
-  message type MUST be authorized (AUTHZ-05).
+- WEB-11 [if REALTIME] WebSocket upgrades MUST check `Origin` against an
+  allow-list and authenticate the connection (cross-site WebSocket
+  hijacking). Each message type MUST be authorized (AUTHZ-05).
 - WEB-12 CORS MUST NOT be treated as a CSRF defense; it governs reading
   responses, not sending requests.
 
@@ -1279,12 +1357,13 @@ much as for request input.
 
 - API-01 Every request MUST be validated against a schema (OpenAPI, JSON
   Schema or typed DTOs). Unknown fields MUST be rejected.
-- API-02 Responses SHOULD be validated against the schema in tests.
+- API-02 [if PUBLIC_API] Responses SHOULD be validated against the schema in
+  tests.
 - API-03 Limits MUST exist for body size, array length, nesting depth,
   string length, page size and query time (DOS-01..03).
-- API-04 GraphQL MUST enforce depth, cost, alias and batch limits.
-  Introspection SHOULD be disabled for public production clients, which
-  SHOULD use persisted queries.
+- API-04 [if GRAPHQL] GraphQL MUST enforce depth, cost, alias and batch
+  limits. Introspection SHOULD be disabled for public production clients,
+  which SHOULD use persisted queries.
 - API-05 Rate limits MUST exist per user, per account and per client IP,
   stricter for unauthenticated and expensive endpoints (DOS-05).
 - API-06 Errors MUST use one format, without stack traces, SQL, file
@@ -1294,13 +1373,13 @@ much as for request input.
 - API-08 Duplicate query parameters and duplicate JSON keys MUST be
   rejected, or handled by one documented rule in every layer (parameter
   pollution).
-- API-09 Deprecated API versions MUST keep every security control until
-  they are removed.
-- API-10 Every endpoint MUST appear in the API specification. Undocumented
-  ("shadow") endpoints MUST NOT exist.
+- API-09 [if PUBLIC_API] Deprecated API versions MUST keep every security
+  control until they are removed.
+- API-10 [if PUBLIC_API] Every endpoint MUST appear in the API
+  specification. Undocumented ("shadow") endpoints MUST NOT exist.
 
 
-## 14. Files and uploads (FILE)
+## 14. Files and uploads (FILE) [if UPLOADS]
 
 - FILE-01 Uploads MUST have size limits, per file and as a per-user quota.
 - FILE-02 The file type MUST be detected from content (magic bytes) and
@@ -1317,8 +1396,8 @@ much as for request input.
 - FILE-06 Image metadata (EXIF, GPS) MUST be stripped.
 - FILE-07 Uploads SHOULD be malware-scanned before other users can access
   them.
-- FILE-08 Image, PDF and office-document processing MUST run in an
-  isolated worker with CPU, memory and time limits.
+- FILE-08 [if UPLOADS or DOCGEN] Image, PDF and office-document processing
+  MUST run in an isolated worker with CPU, memory and time limits.
 - FILE-09 Archive extraction MUST reject absolute paths, `..` segments and
   symlinks (zip slip), and MUST enforce limits on entry count, total size
   and compression ratio.
@@ -1439,7 +1518,7 @@ code decides whether one cheap request can trigger expensive work.
 
 ### 17.4 Queues, retries and caches
 
-- DOS-10 Queues MUST be bounded, with backpressure. Jobs MUST have
+- DOS-10 [if JOBS] Queues MUST be bounded, with backpressure. Jobs MUST have
   timeouts and a maximum attempt count; failures go to a dead-letter
   queue.
 - DOS-11 Retries MUST use exponential backoff with jitter and a retry
@@ -1447,12 +1526,12 @@ code decides whether one cheap request can trigger expensive work.
   Circuit breakers SHOULD protect every vendor.
 - DOS-12 Our own clients (web app, SDKs, mobile apps) MUST back off on
   `429` and `503`.
-- DOS-13 Caches SHOULD coalesce concurrent misses (single-flight) and
-  jitter TTLs, and MAY serve stale data on error.
+- DOS-13 [if CACHE] Caches SHOULD coalesce concurrent misses (single-flight)
+  and jitter TTLs, and MAY serve stale data on error.
 - DOS-14 Repeated identical errors SHOULD be aggregated rather than logged
   one by one; log volume per request SHOULD be bounded.
 
-### 17.5 Long-lived connections
+### 17.5 Long-lived connections [if REALTIME]
 
 - DOS-15 WebSocket and server-sent-event connections MUST have per-user
   connection limits, message size and rate limits, heartbeats, idle
@@ -1460,8 +1539,8 @@ code decides whether one cheap request can trigger expensive work.
 
 ### 17.6 Scaling and health checks
 
-- DOS-16 Application servers MUST be stateless (sessions in a shared
-  store), so they scale horizontally.
+- DOS-16 [if MULTI_PROCESS] Application servers MUST be stateless (sessions
+  in a shared store), so they scale horizontally.
 - DOS-17 Liveness checks MUST NOT touch external dependencies. Readiness
   checks MUST use short timeouts.
 - DOS-18 Account lockout MUST NOT be usable for denial of service
@@ -1475,8 +1554,9 @@ code decides whether one cheap request can trigger expensive work.
   injected by the platform. They MUST NOT appear in the repo, container
   images, client bundles, logs, error messages, test fixtures, CI output
   or build arguments.
-- SEC-02 CI MUST authenticate to cloud services through OIDC federation,
-  and the app SHOULD use workload identity. No static cloud keys.
+- SEC-02 [if CI] CI MUST authenticate to cloud services through OIDC
+  federation, and the app SHOULD use workload identity. No static cloud
+  keys.
 - SEC-03 The app MUST support key rotation without downtime: accept the
   current and the previous signing or decryption key during a rotation
   window, and reload secrets without a restart.
@@ -1496,17 +1576,17 @@ code decides whether one cheap request can trigger expensive work.
 - CFG-03 Production builds MUST NOT contain default accounts, sample apps,
   seed users or test routes. The first admin MUST be created with a
   one-time setup token.
-- CFG-04 Container images MUST use a minimal base image pinned by digest;
-  a multi-stage build without compilers or package managers in the runtime
-  stage; a non-root user; compatibility with a read-only root filesystem;
-  no secrets in layers or build arguments; a `.dockerignore` that excludes
-  `.git`, `.env` and local artifacts.
+- CFG-04 [if CONTAINERS] Container images MUST use a minimal base image
+  pinned by digest; a multi-stage build without compilers or package
+  managers in the runtime stage; a non-root user; compatibility with a
+  read-only root filesystem; no secrets in layers or build arguments; a
+  `.dockerignore` that excludes `.git`, `.env` and local artifacts.
 - CFG-05 Local development MUST use fake vendors and synthetic data.
   Production data and credentials MUST NOT be used on developer machines.
 - CFG-06 Development, test and production MUST share one configuration
   schema, with different values and credentials.
 
-### 18.3 CI and build files
+### 18.3 CI and build files [if CI]
 
 - CI-01 Third-party CI actions and plugins MUST be pinned to a commit SHA.
   Pipeline tokens MUST default to read-only. Jobs that run untrusted (fork)
@@ -1559,7 +1639,8 @@ code decides whether one cheap request can trigger expensive work.
 ### 19.3 Security events
 
 - LOG-09 The app MUST emit named `SecurityEvent`s, so operations can alert
-  without reading code, for at least: failed logins; OTP sends and
+  without reading code, for at least the following, where the feature
+  exists: failed logins; OTP sends and
   failures; password resets; spikes of object-ID 404s per actor
   (enumeration); SMS verify rate per country; SMS budget exhausted;
   webhook signature failures; new platform admin; role grants (admin
@@ -1573,9 +1654,9 @@ code decides whether one cheap request can trigger expensive work.
   sessions of one user, and of all users.
 - LOG-11 Secrets MUST be hot-reloadable (SEC-03), so a leaked key can be
   rotated without a deploy.
-- LOG-12 A kill switch MUST invalidate all API keys of a user.
-- LOG-13 A kill switch MUST disable each third-party integration on its
-  own.
+- LOG-12 [if API_KEYS] A kill switch MUST invalidate all API keys of a user.
+- LOG-13 [if OUTBOUND_HTTP or WEBHOOKS_IN] A kill switch MUST disable each
+  third-party integration on its own.
 
 
 ## 20. Personal data (PRIV)
@@ -1629,15 +1710,16 @@ code decides whether one cheap request can trigger expensive work.
   - concurrency: parallel requests against every security limit,
     single-use token and idempotent operation produce exactly one effect
     or stay within the limit (STATE-02, STATE-03);
-  - caches and replicas: a revoked session, role or grant is rejected
-    immediately, on every instance and on every read path;
-  - read-only mode: every writing handler and job is refused, while
-    throttles, revocations and audit records are still written;
-  - webhooks and vendors: bad signature, stale timestamp, replayed event,
-    vendor timeout, malformed response;
-  - sign-up abuse: repeated sign-ups for one address, after the pending
-    sign-up expires and with `+tag` or dot variants, send no more messages
-    than MSG-16 allows, and a suppressed address gets none;
+  - caches and replicas [if CACHE or REPLICAS]: a revoked session, role or
+    grant is rejected immediately, on every instance and on every read path;
+  - read-only mode [if READ_ONLY_MODE]: every writing handler and job is
+    refused, while throttles, revocations and audit records are still
+    written;
+  - webhooks and vendors [if OUTBOUND_HTTP or WEBHOOKS_IN]: bad signature,
+    stale timestamp, replayed event, vendor timeout, malformed response;
+  - sign-up abuse [if SIGNUP]: repeated sign-ups for one address, after the
+    pending sign-up expires and with `+tag` or dot variants, send no more
+    messages than MSG-16 allows, and a suppressed address gets none;
   - security regressions: CSRF token and `Origin` checks, SSRF block
     list, headers, cookie flags, upload type checks, fail-to-start
     configuration, kill switches, rate limits and quotas;
@@ -1664,6 +1746,9 @@ code decides whether one cheap request can trigger expensive work.
 
 
 ## 23. Before committing
+
+Skip the items whose rules do not apply under the project's conditions
+(section 0.5).
 
 - [ ] Threat-model questions answered where required (TEST-01)
 - [ ] Every new route, resolver, RPC method, job and socket handler has a
