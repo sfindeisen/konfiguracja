@@ -211,6 +211,14 @@ single-database Django application would have.
 | `CONTAINERS` | builds container images in this repository | CFG-04 | If it has a Dockerfile |
 | `CI` | keeps CI pipeline configuration in this repository | SEC-02, 18.3 | Usually |
 
+In such an app, the SHOULDs that need infrastructure it does not have
+are the usual project-wide deviations: a KMS (CRY-04), object storage
+and a separate domain for files (FILE-03, FILE-04), an isolated
+conversion worker (FILE-08), a queue (DOS-06), secrets reloaded without
+a restart (SEC-03, LOG-11), a separate back office (AUTHN-35),
+digest-pinned images (CFG-04) and a pickling cache in its own database
+(STATE-23). Each is recorded once, with its reason (0.2).
+
 ### 0.6 Framework controls
 
 A rule is met by the framework's own control where there is one: enable
