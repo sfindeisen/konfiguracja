@@ -198,6 +198,29 @@ single-database Django application would have.
 | `CONTAINERS` | builds container images in this repository | CFG-04 | If it has a Dockerfile |
 | `CI` | keeps CI pipeline configuration in this repository | SEC-02, 18.3 | Usually |
 
+### 0.6 Framework controls
+
+A rule is met by the framework's own control where there is one: enable
+it, configure it strictly and do not bypass it. Do not build a second one
+(PRIN-08). A framework mechanism that gives the same guarantee counts,
+even if it works differently from the one a rule describes, and many
+frameworks already provide the building blocks of section 0.4. In a
+Django application, for example:
+
+| Rule | Django control |
+| --- | --- |
+| Request context (0.4) | `request.user` and the session |
+| Data-access layer (DATA-01) | model managers and querysets, with any raw SQL kept inside them |
+| Configuration loader (CFG-01, CFG-02) | the settings module, checked with `manage.py check --deploy` in CI |
+| Parameterized queries (INJ-01) | the ORM, and `params` for `raw()` and `cursor.execute()` |
+| Output encoding (INJ-16) | template auto-escaping, without `mark_safe` or the `safe` filter on user data |
+| CSRF (WEB-07) | `CsrfViewMiddleware`, without `csrf_exempt` on cookie-authenticated views |
+| Clickjacking (WEB-01) | `XFrameOptionsMiddleware`, next to `frame-ancestors` |
+| HSTS, MIME sniffing, referrer, cookies (WEB-02..04) | `SECURE_HSTS_SECONDS`, `SECURE_CONTENT_TYPE_NOSNIFF`, `SECURE_REFERRER_POLICY`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` |
+| Host header (HTTP-01) | `ALLOWED_HOSTS` |
+| Password hashing (AUTHN-03) | `Argon2PasswordHasher` first in `PASSWORD_HASHERS` |
+| Signing-key rotation (SEC-03) | `SECRET_KEY_FALLBACKS` |
+
 
 ## 1. Principles (PRIN)
 
