@@ -28,6 +28,10 @@ AGENTS.md.
 
 MAY marks an option.
 
+A value that a rule names (a lifetime, a limit, a key length, a header
+value) is the weakest one allowed: a stricter value meets the rule too,
+and an existing stricter setting MUST NOT be loosened to match the text.
+
 A rule is conditional when following it would mean building something
 that a project without the feature does not need: an outbox, replica
 handling, a read-only gate, SMS fraud controls. A rule that only
@@ -1313,8 +1317,9 @@ much as for request input.
 - WEB-02 MUST send `Strict-Transport-Security: max-age=31536000;
   includeSubDomains`.
 - WEB-03 MUST send `X-Content-Type-Options: nosniff`,
-  `Referrer-Policy: strict-origin-when-cross-origin`, and a
-  `Permissions-Policy` that denies unused features.
+  `Referrer-Policy: strict-origin-when-cross-origin` or stricter
+  (`same-origin`, `no-referrer`), and a `Permissions-Policy` that denies
+  unused features.
 - WEB-04 Session cookies MUST follow AUTHN-23. Other cookies MUST set
   `Secure` and the narrowest `Path` and `SameSite` possible.
 - WEB-05 CORS MUST use an explicit origin allow-list, MUST NOT reflect the
