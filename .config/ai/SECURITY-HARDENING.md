@@ -195,6 +195,7 @@ single-database Django application would have.
 | `IMPERSONATION` | lets staff act as a user | AUTHN-36 | No |
 | `SHARING` | lets users share objects with other users or through links | ISO-05 | If used |
 | `EMAIL` | sends email | `MessageSender`, 7.1, MSG-01, 7.3, MSG-18 | Usually |
+| `INBOUND_EMAIL` | receives email and acts on it: replies, commands, forwarded messages, a mailbox it reads | 7.5 | If members can reply or send commands by email |
 | `SMS` | sends SMS or voice messages | `MessageSender`, AUTHN-13, MSG-01, 7.2, 7.3, MSG-23 | If used |
 | `OUTBOUND_HTTP` | calls external HTTP APIs | `EgressClient`, 8.1, EXT-25, INJ-27, LOG-13 | If it integrates vendors |
 | `USER_URLS` | fetches URLs that users supply, or sends webhooks to them | `EgressClient`, 8.3 | Rarely |
@@ -1016,6 +1017,70 @@ used to deliver spam.
 - MSG-24 Limit hits and attempts on suppressed keys MUST emit
   `SecurityEvent`s.
 
+### 7.5 Inbound email [if INBOUND_EMAIL]
+
+Every header that an inbound message arrives with, `From` included, is
+written by the sender. SPF checks only the envelope sender's domain, and
+DKIM proves only that some domain signed the message; neither says
+anything about `From` on its own. These rules decide when a message may
+act for a user.
+
+- MSG-25 An inbound message MUST NOT be attributed to a user, or act for
+  one, because of its `From`, `Sender`, `Reply-To` or envelope sender
+  (`Return-Path`) alone.
+- MSG-26 A sender counts as authenticated only with an aligned pass, as
+  DMARC defines it (RFC 9989): a valid DKIM signature whose `d=` domain
+  is aligned with the `From` domain, or SPF passing for an envelope-sender
+  domain aligned with it. SPF or DKIM passing for any other domain proves
+  nothing about `From`. Whether the domain publishes a DMARC policy, and
+  which one, does not change this.
+- MSG-27 Authentication results MUST come from our own inbound provider or
+  receiving server: the verdicts in the provider's signed webhook
+  (EXT-12), or the `Authentication-Results` header that our server adds,
+  recognized by its `authserv-id` (RFC 8601); that server MUST remove
+  headers claiming the same `authserv-id` from incoming mail. Every other
+  `Authentication-Results`, `Received-SPF` or `ARC-*` header was written
+  by the sender or by hops we do not control, and MUST be ignored; ARC
+  results MAY be used only from forwarders on an explicit allow-list.
+- MSG-28 Messages with more than one `From` header, or more than one
+  address in `From`, MUST be rejected. The domain of the `From` address
+  MUST be the one the authentication results name (`header.from`).
+  Accounts MUST be matched on the address itself, normalized as in
+  AUTHN-32 and against verified addresses only, never on the display
+  name; wherever the app shows the sender to others, it MUST show the
+  address too.
+- MSG-29 A message MAY act for a user only if its sender is authenticated
+  (MSG-26) and its `From` address is a verified address of that user.
+  Addresses that users reply to (threads, approvals) SHOULD also carry a
+  token per recipient and purpose, such as `reply+<token>@in.example.com`
+  (at least 128 bits, random or an HMAC over user, object, purpose and
+  expiry), checked against the envelope recipient rather than `To` or
+  `Cc`. A token MUST NOT replace sender authentication: notifications get
+  forwarded, and whoever replies to a forwarded one would act as the
+  user.
+- MSG-30 A message that fails these checks MUST NOT act for anyone. The
+  app MAY drop it, or hold it and send a confirmation link (MSG-05) to the
+  verified address of the account it claims, rate-limited per account.
+  Each refusal MUST emit a `SecurityEvent`.
+- MSG-31 Email MUST NOT trigger actions that need step-up
+  re-authentication (AUTHN-22), move money, change roles or permissions,
+  or delete data, even from an authenticated sender: DMARC authenticates
+  a domain, not a person, and mailboxes get compromised and forwarded.
+  Such a message MAY at most lead to a page where the user signs in and
+  confirms.
+- MSG-32 Inbound messages are untrusted input (PRIN-09). Parse them with
+  a maintained MIME library under size, part-count and nesting limits
+  (DOS-01). HTML bodies MUST be sanitized before display (INJ-17), and
+  every URL in a message is user-supplied (EXT-17). Attachments are
+  uploads (section 14).
+- MSG-33 Automatic replies to the sender (errors, confirmations, "unknown
+  command") MUST go only to authenticated senders (MSG-26), MUST carry
+  `Auto-Submitted: auto-replied`, and MUST be rate-limited per address.
+  Messages that are automatic themselves MUST NOT be answered: those with
+  a null envelope sender (`<>`), with `Auto-Submitted` other than `no`, or
+  with `Precedence: bulk`, `list` or `junk` (RFC 3834). This prevents
+  backscatter to forged senders, and mail loops.
+
 
 ## 8. Third-party systems (EXT)
 
@@ -1806,6 +1871,11 @@ code decides whether one cheap request can trigger expensive work.
   - sign-up abuse [if SIGNUP]: repeated sign-ups for one address, after the
     pending sign-up expires and with `+tag` or dot variants, send no more
     messages than MSG-16 allows, and a suppressed address gets none;
+  - inbound email [if INBOUND_EMAIL]: a forged `From`, a forged
+    `Authentication-Results` header, a DKIM signature of an unaligned
+    domain, two `From` headers and a valid reply token sent by someone
+    else each fail to act for the user, and automatic messages get no
+    reply;
   - security regressions: CSRF token and `Origin` checks, SSRF block
     list, headers, cookie flags, upload type checks, fail-to-start
     configuration, kill switches, rate limits and quotas;
@@ -1825,7 +1895,7 @@ code decides whether one cheap request can trigger expensive work.
 | A04 Cryptographic Failures | CRY, SEC, AUTHN-03 |
 | A05 Injection (includes XSS) | INJ, WEB-13..16, PARSE |
 | A06 Insecure Design | PRIN, BIZ, STATE, TEST-01, DOS |
-| A07 Authentication Failures | AUTHN |
+| A07 Authentication Failures | AUTHN, MSG-25..31 |
 | A08 Software or Data Integrity Failures | CI-02, CI-03, PARSE-03, EXT-12..16, STATE-23 |
 | A09 Security Logging and Alerting Failures | LOG |
 | A10 Mishandling of Exceptional Conditions | BIZ-10..14, DOS-10..14 |
@@ -1853,6 +1923,8 @@ Skip the items whose rules do not apply under the project's conditions
       work has its own stricter limits (DOS-01..08)
 - [ ] User-controlled URLs go through `EgressClient`; egress list updated
       (EXT-17, EXT-25)
+- [ ] Inbound email acts for a user only from an authenticated, verified
+      address, and never for high-risk actions (MSG-26, MSG-29, MSG-31)
 - [ ] Every interpreter (database, shell, template engine, document
       generator, logger) gets untrusted data only as parameters,
       arguments or encoded values (INJ)
@@ -1892,3 +1964,8 @@ Skip the items whose rules do not apply under the project's conditions
   https://www.twilio.com/docs/messaging/guides/preventing-messaging-fraud
 - Cloud Security Alliance, slopsquatting research note (April 2026):
   https://labs.cloudsecurityalliance.org/research/csa-research-note-slopsquatting-ai-supply-chain-20260419/
+- RFC 9989 (DMARC): https://www.rfc-editor.org/rfc/rfc9989
+- RFC 8601 (Authentication-Results header field):
+  https://www.rfc-editor.org/rfc/rfc8601
+- RFC 3834 (automatic responses to email):
+  https://www.rfc-editor.org/rfc/rfc3834
