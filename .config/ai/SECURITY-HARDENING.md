@@ -187,6 +187,7 @@ single-database Django application would have.
 | `REALTIME` | pushes data to clients over WebSockets, server-sent events or pub/sub | ISO-16, WEB-11, 17.5 | With Django Channels |
 | `PASSWORDS` | signs users in with passwords | 5.2, AUTHN-19 | Yes (`django.contrib.auth`) |
 | `SSO` | signs users in through an external identity provider | 5.7 | If configured |
+| `MFA` | offers a second sign-in factor: passkeys, TOTP, or codes by SMS or email | AUTHN-11..13, AUTHN-17, AUTHN-21 | If two-factor sign-in is enabled (django-otp, django-allauth) |
 | `SIGNUP` | lets anyone create an account | 7.4, MSG-18, MSG-23 | If registration is open |
 | `INVITATIONS` | lets users invite other people | AUTHN-29, AUTHN-30 | If used |
 | `API_KEYS` | issues API keys or personal access tokens | AUTHN-33, LOG-12 | If used |
@@ -682,14 +683,14 @@ that decision.
 
 ### 5.4 Second factors and one-time codes
 
-- AUTHN-11 MUST support passkeys (WebAuthn) and SHOULD make them the
-  default second factor. MUST allow several passkeys per user.
-- AUTHN-12 TOTP: secrets MUST be encrypted at rest (CRY-04); accept at
-  most one time step of clock skew; MUST reject reuse of a code within its
-  validity window.
-- AUTHN-13 [if SMS] SMS and voice codes are a fallback only. NIST SP
-  800-63B-4 classifies PSTN delivery as a restricted authenticator. The app
-  MUST offer a phishing-resistant option.
+- AUTHN-11 [if MFA] MUST support passkeys (WebAuthn) and SHOULD make them
+  the default second factor. MUST allow several passkeys per user.
+- AUTHN-12 [if MFA] TOTP: secrets MUST be encrypted at rest (CRY-04); accept
+  at most one time step of clock skew; MUST reject reuse of a code within
+  its validity window.
+- AUTHN-13 [if MFA and SMS] SMS and voice codes are a fallback only. NIST
+  SP 800-63B-4 classifies PSTN delivery as a restricted authenticator. The
+  app MUST offer a phishing-resistant option.
 - AUTHN-14 Every one-time code (SMS, email, step-up) MUST come from a
   CSPRNG, have at least 6 digits, be stored hashed, be single use, expire
   within 10 minutes, and be compared in constant time.
@@ -698,8 +699,8 @@ that decision.
   one purpose MUST NOT be accepted for another.
 - AUTHN-16 MUST invalidate a code after at most 5 failed attempts, and
   MUST throttle resends with increasing delays.
-- AUTHN-17 Recovery codes MUST be single use, stored hashed, shown once,
-  and regenerable only after re-authentication.
+- AUTHN-17 [if MFA] Recovery codes MUST be single use, stored hashed, shown
+  once, and regenerable only after re-authentication.
 - AUTHN-18 A phone number or email address MUST be verified before it can
   serve as a factor or a recovery channel. Phone numbers MUST be stored in
   E.164 format.
@@ -711,7 +712,7 @@ that decision.
   minutes, and be invalidated by any password change.
 - AUTHN-20 Links sent by email or SMS MUST be built from configured base
   URLs, never from `Host` or `X-Forwarded-Host`.
-- AUTHN-21 A password reset MUST NOT bypass MFA. Resetting MFA MUST
+- AUTHN-21 [if MFA] A password reset MUST NOT bypass MFA. Resetting MFA MUST
   require stronger proof, apply a cooling-off delay, and notify every
   existing channel.
 - AUTHN-22 MUST require step-up re-authentication before changing email,
