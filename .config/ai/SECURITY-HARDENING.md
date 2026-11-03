@@ -1154,7 +1154,7 @@ UPDATE invoices
     if there is one);
   - be checked for existence, publisher history, package age (flag
     packages younger than 90 days), maintenance status and license;
-  - be installed from a lockfile with integrity hashes.
+  - be added to the lockfile, if the project has one (CI-03).
   Never install a package only because an AI tool suggested it. AI tools
   invent plausible package names, and attackers register them
   ("slopsquatting").
@@ -1644,11 +1644,11 @@ code decides whether one cheap request can trigger expensive work.
   code MUST NOT have access to secrets.
 - CI-02 Pipelines SHOULD build once and promote the same artifact through
   every environment, sign it, and produce an SBOM.
-- CI-03 Lockfiles MUST be committed and used (`npm ci`,
-  `pip install --require-hashes`, or the ecosystem equivalent). Installs
-  MUST use the project's registry proxy, if there is one. Install scripts
-  SHOULD be disabled (`npm ci --ignore-scripts`) unless needed and
-  justified.
+- CI-03 Dependencies SHOULD be installed from a committed lockfile with
+  integrity hashes (`npm ci`, `pip install --require-hashes`, or the
+  ecosystem equivalent). Installs MUST use the project's registry proxy,
+  if there is one. Install scripts SHOULD be disabled
+  (`npm ci --ignore-scripts`) unless needed and justified.
 - CI-04 Internal packages MUST use a reserved scope or namespace, and the
   proxy MUST NOT fall back to public registries for it (dependency
   confusion).
@@ -1841,8 +1841,8 @@ Skip the items whose rules do not apply under the project's conditions
       fixtures (SEC-01, LOG-03)
 - [ ] Security-relevant actions write audit records and emit security
       events (LOG-07, LOG-09)
-- [ ] New dependency justified and verified; lockfile updated (AI-01,
-      CI-03)
+- [ ] New dependency justified and verified; lockfile updated, if there
+      is one (AI-01, CI-03)
 - [ ] Tests written from the specification, including misuse cases; bug
       fixes start with a failing test (AI-05, BIZ-15, TEST-02)
 - [ ] Migrations backward compatible (DATA-08)
