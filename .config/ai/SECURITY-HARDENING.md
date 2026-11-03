@@ -1687,8 +1687,11 @@ code decides whether one cheap request can trigger expensive work.
 
 ### 19.2 Audit trail
 
-- LOG-06 The audit trail MUST be separate from debug logs, append-only and
-  tamper-evident (write-once storage or a hash chain).
+- LOG-06 The audit trail MUST be separate from debug logs and append-only:
+  no code path updates or deletes audit records, and, where the database
+  has per-user grants, the application's database user MUST NOT be able
+  to. It SHOULD also be tamper-evident (write-once storage or a hash
+  chain).
 - LOG-07 Audit records MUST capture who, what, when (UTC), from where,
   and before/after values for: sign-ins; MFA and recovery changes; role
   and permission changes; access denials on sensitive resources; exports;
