@@ -1597,7 +1597,7 @@ code decides whether one cheap request can trigger expensive work.
   keys.
 - SEC-03 The app MUST support key rotation without downtime: accept the
   current and the previous signing or decryption key during a rotation
-  window, and reload secrets without a restart.
+  window. It SHOULD reload secrets without a restart.
 - SEC-04 Each environment MUST have its own secrets. Nothing is shared
   between staging and production.
 - SEC-05 Anything sent to the browser is public. Only publishable keys may
@@ -1691,8 +1691,8 @@ code decides whether one cheap request can trigger expensive work.
 
 - LOG-10 Kill switches MUST exist and be covered by tests: revoke the
   sessions of one user, and of all users.
-- LOG-11 Secrets MUST be hot-reloadable (SEC-03), so a leaked key can be
-  rotated without a deploy.
+- LOG-11 Secrets SHOULD be hot-reloadable (SEC-03), so a leaked key can
+  be rotated without a deploy.
 - LOG-12 [if API_KEYS] A kill switch MUST invalidate all API keys of a user.
 - LOG-13 [if OUTBOUND_HTTP or WEBHOOKS_IN] A kill switch MUST disable each
   third-party integration on its own.
