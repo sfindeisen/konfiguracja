@@ -91,13 +91,15 @@ own commit before the change that needs it.
 #### Message sender: `MessageSender`
 
 - What: functions such as `send_email(template, to, data)` and
-  `send_sms(template, to, data)` that write a message request to an outbox
-  table inside the current database transaction, plus a background worker
-  that reads the outbox and calls the email or SMS provider through its
+  `send_sms(template, to, data)` that hand a message over for sending once
+  the current database transaction has committed (BIZ-11): through an
+  outbox table and a background worker if the project has one (MSG-13),
+  otherwise from an on-commit hook. The provider is called through its
   vendor adapter (EXT-01).
 - Does: renders templates with auto-escaping (MSG-03); applies rate
   limits, budgets and the suppression list (MSG-07, MSG-09, MSG-10,
-  MSG-16..19); sends with an idempotency key and retries (MSG-13).
+  MSG-16..19); with an outbox, sends with an idempotency key and retries
+  (MSG-13).
 - Used by: domain code. Nothing else calls a provider SDK.
 
 #### Audit log writer: `AuditLog`
@@ -773,8 +775,8 @@ that decision.
 
 ### 7.1 Email
 
-- MSG-01 MUST send all email and SMS through `MessageSender` via the
-  outbox (MSG-13).
+- MSG-01 MUST send all email and SMS through `MessageSender`, after the
+  business transaction has committed (BIZ-11).
 - MSG-02 Users MUST NOT control the `From` address. Messages sent on a
   user's behalf (invitations, shares) go out from the app's domain; the
   user's name MAY appear in the display name, sanitized, and their address
@@ -885,8 +887,8 @@ used to deliver spam.
   idempotency key.
 - EXT-04 SHOULD isolate vendors with separate worker or connection pools
   (bulkheads) and circuit breakers.
-- EXT-05 MUST NOT make network calls inside a database transaction. Use
-  the outbox (BIZ-11).
+- EXT-05 MUST NOT make network calls inside a database transaction. Make
+  them after the commit (BIZ-11).
 - EXT-06 MUST validate vendor responses against a schema, with size
   limits. Vendor data is untrusted input.
 - EXT-07 MUST honor `429` responses and `Retry-After`.
@@ -993,7 +995,10 @@ UPDATE invoices
   catch-all that logs and continues. The whole unit of work MUST roll
   back.
 - BIZ-11 Every side effect that must follow a commit (messages, events,
-  vendor calls) MUST go through the transactional outbox.
+  vendor calls) MUST run only after the commit has succeeded, never inside
+  the transaction: from an on-commit hook (for example Django's
+  `transaction.on_commit`), or through a transactional outbox when the
+  project has a background worker (MSG-13).
 - BIZ-12 Clients MUST receive generic error messages with a correlation
   ID; details go to logs only.
 - BIZ-13 MUST release every resource (connection, file handle, lock,
@@ -1564,12 +1569,13 @@ code decides whether one cheap request can trigger expensive work.
 
 ### 19.4 Kill switches
 
-- LOG-10 Kill switches MUST exist and be covered by tests: revoke sessions
-  per user and globally; invalidate all API keys of a user; disable an
-  integration or feature flag; put the application or one account into
-  read-only mode (STATE-34).
+- LOG-10 Kill switches MUST exist and be covered by tests: revoke the
+  sessions of one user, and of all users.
 - LOG-11 Secrets MUST be hot-reloadable (SEC-03), so a leaked key can be
   rotated without a deploy.
+- LOG-12 A kill switch MUST invalidate all API keys of a user.
+- LOG-13 A kill switch MUST disable each third-party integration on its
+  own.
 
 
 ## 20. Personal data (PRIV)
