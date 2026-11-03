@@ -1476,9 +1476,12 @@ much as for request input.
   unauthenticated CBC, RC4, DES or PKCS#1 v1.5 encryption. A nonce MUST
   NOT be reused with the same key.
 - CRY-04 Sensitive fields (OAuth tokens, TOTP secrets, IBANs, ID numbers)
-  MUST use envelope encryption with keys from a KMS. Per-user data keys
-  MAY be used to allow crypto-shredding on account deletion. Ciphertext
-  MUST record its key ID so keys can rotate.
+  MUST be encrypted (CRY-03) with a dedicated key, not the framework's
+  signing key, kept outside the database and its backups, so that a
+  stolen dump or backup does not reveal them. Ciphertext MUST record its
+  key ID so keys can rotate. The key SHOULD stay in a KMS, with envelope
+  encryption. Per-user data keys MAY be used to allow crypto-shredding on
+  account deletion.
 - CRY-05 Keys and secrets MUST NOT appear in code or committed
   configuration.
 - CRY-06 Randomness for security purposes MUST come from the OS CSPRNG
