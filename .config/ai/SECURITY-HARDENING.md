@@ -761,6 +761,14 @@ that decision.
   normalized form (Unicode NFKC plus case folding). Mail MUST be sent to
   the address as entered. Usernames shown to others SHOULD reject
   mixed-script and confusable characters.
+- AUTHN-38 A username or other public handle MUST NOT be given to a
+  different account once it has been used, even after the account is
+  deleted or renamed: links, mentions, old messages and other systems that
+  still name it would reach the new holder. Keep a tombstone of the
+  normalized form (AUTHN-32), as a keyed hash (MSG-17) where the name may
+  be personal data, and check new names against it. Grants, ownership and
+  other references MUST use the account's immutable internal ID, never its
+  username or email address.
 
 ### 5.9 API keys, machine identities and back office
 
