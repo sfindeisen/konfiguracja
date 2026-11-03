@@ -931,7 +931,12 @@ that decision.
 - MSG-07 Invitations, shares and notifications MUST limit free text and
   MUST be rate-limited per sender and per recipient.
 - MSG-08 MUST process bounce and complaint webhooks and maintain a
-  suppression list; MUST stop sending to hard-bounced addresses.
+  suppression list; MUST stop sending to hard-bounced addresses. Bounces
+  and complaints MUST be authenticated: by the provider's webhook
+  signature (EXT-12), or, for bounces that arrive by email, by a
+  per-message return path (VERP) that matches a message we sent. A forged
+  bounce would otherwise silence an address, password resets and security
+  notices included.
 
 ### 7.2 SMS [if SMS]
 
